@@ -1,0 +1,23 @@
+# Build
+build/
+*.o
+*.a
+*.rom
+
+# Generated (runtime.asm from runtime.c; crt0.asm is source)
+runtime.asm
+*.lst
+*.sym
+*.map
+
+# IDE
+.vscode/
+*.swp
+*~
+cfg
+scramble/*.*
+*.rel
+*.ihx
+*.noi
+*.cdb
+*.rst
