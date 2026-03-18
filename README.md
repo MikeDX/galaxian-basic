@@ -1,69 +1,139 @@
 # Galaxian BASIC
 
-A minimal programming language for Galaxian/Scramble arcade hardware. BASIC-like syntax with built-in commands for graphics, sprites, sound, and input.
+**Write games for classic arcade hardware using BASIC!**
 
-## Status
+Galaxian BASIC is a retro programming language designed for the iconic Galaxian and Scramble arcade machines. Write simple BASIC programs that compile directly to Z80 machine code and run on real arcade hardware or MAME.
 
-**Runtime working** — Z80 skeleton builds and runs in MAME. Displays text, hardware sprites, and per-column scrolling. See [PLAN.md](PLAN.md) for the full design and implementation roadmap.
+## Why Galaxian BASIC?
+
+- **Authentic retro experience** — Your programs run on actual 1980s arcade hardware (or MAME)
+- **Simple BASIC syntax** — Easy to learn, with built-in commands for sprites, scrolling, sound, and input
+- **No emulation layer** — Compiles directly to ROM for native Z80 execution
+- **Modern tooling** — Planned IDE with graphics editor, emulator, and debugger built-in
+
+## What's Working Now
+
+The Z80 runtime is complete and running in MAME! The current demo shows:
+
+- Text rendering on the arcade display
+- 7 bouncing hardware sprites
+- Per-column scrolling effects
+- Watchdog timer handling
+
+![Demo running in MAME](screenshots/output.gif)
+
+**Next up:** Language compiler, BASIC interpreter, and the visual IDE.
 
 ## Quick Start
 
+Want to see it in action? Build and run the demo:
+
 ```bash
 cd galaxian-basic
-make          # Build ROM
-make run      # Run in MAME
+make          # Build the ROM
+make run      # Launch in MAME
 ```
 
-**Requirements:** SDCC 3.8.0 (default: `~/Downloads/sdcc-3.8.0`), MAME, Python 3.
+**Requirements:** 
+- SDCC 3.8.0 (Z80 compiler) — default path: `~/Downloads/sdcc-3.8.0`
+- MAME (arcade emulator)
+- Python 3
 
-**Output:**
-- `build/galaxian-scramble-game.rom` — full ROM
-- `scramble/` — sliced ROMs for MAME (s1.2d–s8.2p, c1.5h, c2.5f, c01s.6e, sound)
+**Output files:**
+- `build/galaxian-scramble-game.rom` — Complete ROM image
+- `scramble/` — Individual ROM chips for MAME (s1.2d–s8.2p, c1.5h, c2.5f, etc.)
 
-**Run manually:** `mame scramble -rompath .` (from galaxian-basic/)
+**Run manually:** `mame scramble -rompath .` (from the `galaxian-basic/` directory)
 
-## Current Demo
+## Example Programs
 
-The runtime displays:
-- "GALAXIAN BASIC", "READY", "INPUT OK", "WATCHDOG OK"
-- 7 bouncing hardware sprites (sprite code 0x18)
-- Scrolling strip at row 24 (per-column scroll)
+Here's what Galaxian BASIC code looks like:
+
+**Hello World:**
+```basic
+10 CLS
+20 PRINT 10, 15, "HELLO GALAXIAN"
+30 WAIT 60
+40 GOTO 20
+```
+
+**Sprite Animation:**
+```basic
+10 CLS
+20 SPRITE 0, 100, 112, 24, 1
+30 WAIT 30
+40 GOTO 30
+```
+
+**Scrolling Effect:**
+```basic
+10 CLS
+20 FOR C = 0 TO 31
+30   SCROLL C, C
+40 NEXT C
+50 PRINT 5, 10, "SCROLL!"
+60 GOTO 50
+```
+
+See the `examples/` folder for more sample programs!
 
 ## Project Structure
 
 ```
 galaxian-basic/
-├── PLAN.md      # Design & implementation plan
-├── README.md    # This file
-├── Makefile     # Self-contained build
-├── slice.py     # Slice ROM for MAME
-├── crt0.asm     # Z80 reset + vblank interrupt
-├── runtime.c    # C runtime (putchar, sprites, scroll)
-├── gfxdata.h    # Tile ROM + palette
-├── example.c    # Reference (gfxtest-style)
-├── src/         # Lexer, parser, compiler (planned)
-├── lib/         # Galaxian stubs (planned)
-├── examples/    # Sample .bas programs
-└── tests/       # Test suite
+├── README.md       # You are here
+├── PLAN.md         # Technical design document
+├── Makefile        # Build system
+├── crt0.asm        # Z80 startup code
+├── runtime.c       # Hardware abstraction layer
+├── gfxdata.h       # Graphics tiles and palette
+├── slice.py        # ROM splitter for MAME
+├── examples/       # Sample BASIC programs
+│   ├── hello.bas
+│   ├── scroll.bas
+│   └── sprite.bas
+├── src/            # Compiler (coming soon)
+├── lib/            # Runtime library (coming soon)
+└── tests/          # Test suite
 ```
 
-## Makefile Targets
+## Build Commands
 
-| Target | Description |
-|--------|-------------|
-| `make` | Build ROM (default) |
-| `make run` | Build and run in MAME |
-| `make clean` | Remove build artifacts (keeps crt0.asm) |
-| `make info` | Show ROM info and symbols |
-| `make help` | Show help |
+| Command | What it does |
+|---------|--------------|
+| `make` | Build the ROM |
+| `make run` | Build and launch in MAME |
+| `make clean` | Clean build artifacts |
+| `make info` | Show ROM details and symbols |
+| `make help` | Display help |
 
-## Hardware Target
+## The Hardware
 
-- **CPU**: Z80 @ 3.072 MHz
-- **Display**: 32×32 character grid (224×256 pixels)
-- **Sprites**: 8 hardware sprites (ORAM 0x5040)
-- **Scroll**: Per-column (TRAM 0x5000)
-- **Sound**: AY-3-8910
+Galaxian BASIC targets the original arcade hardware:
+
+- **CPU**: Zilog Z80 @ 3.072 MHz
+- **Display**: 32×32 tile grid (224×256 pixels, ~32 colors)
+- **Sprites**: 8 hardware sprites with independent positioning
+- **Scrolling**: Per-column vertical scrolling
+- **Sound**: AY-3-8910 programmable sound generator
+- **Input**: Joystick, fire buttons, coin slots
+
+## Roadmap
+
+**Current Status:** Runtime complete, hardware working in MAME
+
+**Coming Soon:**
+- BASIC language compiler
+- Visual IDE (web or desktop)
+- Graphics editor
+- Built-in emulator and debugger
+- Node-based visual programming (future)
+
+See [PLAN.md](PLAN.md) for the complete technical roadmap.
+
+## Contributing
+
+This project is in active development. Check out the [PLAN.md](PLAN.md) to see what's being worked on and what's coming next.
 
 ## License
 

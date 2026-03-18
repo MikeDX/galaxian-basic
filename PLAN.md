@@ -1,6 +1,21 @@
-# Galaxian BASIC — Project Plan
+# Galaxian BASIC — Technical Plan
 
-A minimal programming language for Galaxian/Scramble arcade hardware. BASIC-like syntax with built-in commands for graphics, sound, and input.
+**Goal:** Create a BASIC programming language that compiles to native Z80 code for Galaxian/Scramble arcade hardware.
+
+This document outlines the technical design, architecture, and implementation roadmap. If you're looking for a quick overview, see [README.md](README.md).
+
+---
+
+## Overview
+
+Galaxian BASIC brings modern development tools to classic arcade hardware. Write programs in a simple BASIC dialect, compile to Z80 machine code, and run on real arcade boards or MAME.
+
+**Key Features:**
+- BASIC syntax optimized for arcade game development
+- Direct hardware access (sprites, scrolling, sound, input)
+- Compiles to native Z80 code — no emulation overhead
+- Modern IDE with graphics editor and debugger
+- Runs on actual 1980s arcade hardware
 
 ---
 
@@ -124,10 +139,10 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 | Watchdog | 0x7000 | Must tick or hardware resets |
 | Input | 0x8100–0x8102 | input0, input1, input2 |
 
-**Vblank sync (Pitfall pattern):**
-- Interrupt at 0x66: minimal handler, only increments `video_framecount`
-- `wait_for_frame()`: HALT until vblank, then copies `sprites[]` → vsprites and `scroll_buf` → vcolumns
-- Prevents tearing — sprite/scroll updates happen right after vblank
+**Vblank synchronization:**
+- Interrupt at 0x66: minimal handler that increments `video_framecount`
+- `wait_for_frame()`: HALT until vblank, then copies buffered sprite/scroll data to hardware registers
+- Prevents tearing — all visual updates happen during vertical blank
 
 **Runtime API (C):**
 - `putchar(x, y, ch)`, `putstring(x, y, s)` — text (CHAR remap for digits)
@@ -138,15 +153,15 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 
 ### 3.2 Compilation Strategy
 
-**Phase 1: Interpreted (C runtime)**  
-- Compile to bytecode
-- Run on SDL2/terminal with Galaxian-compatible runtime
-- Validate language and commands
+**Phase 1: Bytecode interpreter**  
+- Compile BASIC to bytecode
+- Bytecode interpreter runs on Z80
+- Validate language design and commands
 
-**Phase 2: Z80 native**  
-- Emit Z80 assembly or machine code
-- Link with minimal runtime
-- Produce ROM for Galaxian
+**Phase 2: Native Z80 compilation (optional)**  
+- Direct BASIC → Z80 assembly translation
+- Link with minimal runtime library
+- Optimized ROM for maximum performance
 
 ### 3.3 Bytecode (interpreter)
 
@@ -169,41 +184,51 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 
 ## 4. Implementation Phases
 
-### Phase 0: Z80 Runtime (done)
-- [x] crt0.asm — reset vector, vblank interrupt at 0x66
-- [x] runtime.c — putchar, putstring, clrscr, set_sprite, hide_sprite
-- [x] set_scroll, set_column_attrib — per-column scroll/color
-- [x] wait_for_frame — Pitfall-style vblank sync, no tearing
-- [x] Makefile — self-contained build, slice.py, scramble/ output
-- [x] Hardware sprites (ORAM), scrolling (TRAM vcolumns)
-- [x] Demo: bouncing sprites + scrolling strip
+### Phase 0: Z80 Runtime ✓ Complete
+- [x] crt0.asm — reset vector, vblank interrupt handler
+- [x] runtime.c — text rendering, sprite control, scrolling
+- [x] Hardware abstraction — VRAM, ORAM, TRAM access
+- [x] Vblank synchronization — tear-free graphics updates
+- [x] Build system — Makefile, ROM slicing, MAME integration
+- [x] Working demo — text, bouncing sprites, scrolling effects
 
-### Phase 1: Lexer & Parser (1–2 days)
-- [ ] Lexer: tokens for keywords, numbers, identifiers, strings
-- [ ] Parser: line-based, statement list, expressions
-- [ ] AST: nodes for each statement/expression type
+### Phase 1: Lexer & Parser
+- [ ] Tokenizer — keywords, numbers, identifiers, strings
+- [ ] Line-based parser — BASIC statement structure
+- [ ] Expression parser — arithmetic, comparisons, logic
+- [ ] AST generation — abstract syntax tree for compilation
 
-### Phase 2: Compiler → Bytecode (1–2 days)
-- [ ] Compile expressions to stack machine
-- [ ] Compile statements
-- [ ] Line number → bytecode address table
+### Phase 2: Bytecode Compiler
+- [ ] Expression compilation — stack-based bytecode
+- [ ] Statement compilation — control flow, commands
+- [ ] Line number resolution — GOTO/GOSUB targets
+- [ ] Symbol table — variable tracking
 
-### Phase 3: C Runtime / Interpreter (1 day)
-- [ ] Bytecode interpreter loop
-- [ ] Galaxian I/O stubs (vram, sprites, input, sound)
-- [ ] SDL2 or terminal front-end for testing
+### Phase 3: Bytecode Interpreter
+- [ ] Interpreter loop — fetch, decode, execute
+- [ ] Stack machine — expression evaluation
+- [ ] Runtime integration — call into hardware API
+- [ ] Error handling — runtime error messages
 
-### Phase 4: Built-in Commands (2–3 days)
-- [ ] PRINT, POKE, CLS
-- [ ] COLOR, SCROLL, FILL
-- [ ] SPRITE
-- [ ] SOUND, BEEP
-- [ ] JOY, BUTTON, WAIT
+### Phase 4: Built-in Commands
+- [ ] Display commands — PRINT, POKE, CLS, FILL
+- [ ] Graphics commands — COLOR, SCROLL
+- [ ] Sprite commands — SPRITE (show/hide/position)
+- [ ] Sound commands — SOUND, BEEP
+- [ ] Input commands — JOY, BUTTON
+- [ ] Control commands — WAIT, GOTO, GOSUB, RETURN, END
 
-### Phase 5: Z80 Backend (optional, 3–5 days)
-- [ ] Bytecode → Z80 asm
-- [ ] Runtime in Z80
-- [ ] ROM build integration
+### Phase 5: IDE Development
+- [ ] Code editor — syntax highlighting, line numbers
+- [ ] Graphics editor — tile/sprite editing
+- [ ] Emulator integration — built-in Z80 emulator
+- [ ] Debugger — breakpoints, step, inspect
+- [ ] Project management — save/load, export ROM
+
+### Phase 6: Native Compiler (optional)
+- [ ] Z80 code generation — direct BASIC → assembly
+- [ ] Optimization passes — peephole, dead code elimination
+- [ ] Linking — combine with runtime library
 
 ---
 
@@ -238,17 +263,45 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 
 ---
 
-## 6. Dependencies
+## 6. Development Tools
 
-- **Host**: C99 compiler (for lexer, parser, compiler, interpreter)
-- **Target**: SDCC for Z80 (if doing native ROM)
-- **Optional**: SDL2 for visual testing
+**Required:**
+- **SDCC 3.8.0** — Z80 cross-compiler
+- **MAME** — Arcade emulator for testing
+- **Python 3** — Build scripts
+- **C99 compiler** — For compiler/interpreter development
+
+**Planned:**
+- **Web IDE** — Browser-based development environment
+- **Desktop IDE** — Standalone application (Electron or native)
+- **Built-in emulator** — Z80 emulator with debugging support
 
 ---
 
-## 7. Success Criteria
+## 7. Success Milestones
 
-1. Parse and run `10 PRINT 5,5,"HI" : END`
-2. Run on SDL2 with correct vram mapping
-3. All built-in commands work in interpreter
-4. (Stretch) Produce runnable Galaxian ROM
+### Milestone 1: Runtime ✓
+- Z80 code runs on MAME
+- Hardware sprites, scrolling, text working
+
+### Milestone 2: Language Core
+- Parse and compile BASIC programs
+- Bytecode interpreter functional
+- Basic commands working (PRINT, GOTO, END)
+
+### Milestone 3: Full Language
+- All built-in commands implemented
+- Example programs running
+- Error handling and debugging
+
+### Milestone 4: IDE
+- Visual editor with syntax highlighting
+- Graphics/sprite editor
+- Built-in emulator and debugger
+- Export to ROM
+
+### Milestone 5: Advanced Features
+- Node-based visual programming
+- Performance optimization
+- Native Z80 compilation
+- Community library of programs
