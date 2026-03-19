@@ -15,13 +15,13 @@ Galaxian BASIC is a retro programming language designed for the iconic Galaxian 
 
 The Z80 runtime is complete and running in MAME! The **BASIC → C → ROM** pipeline works:
 
-- **gbasic.py** — Compiles BASIC to C (CLS, PRINT, WAIT, GOTO, SPRITE, SCROLL, FOR/NEXT)
+- **gbasic.py** — Compiles BASIC to C (CLS, PRINT, POKE, COLOR, LET, IF/THEN, WAIT, GOTO, SPRITE, HIDE, SCROLL, FOR/NEXT)
 - **Runtime engine** — Text, sprites, scrolling, watchdog
 - **Pipeline** — `make PROGRAM=examples/hello.bas` produces a runnable ROM
 
 ![Demo running in MAME](screenshots/demo.gif)
 
-**Next up:** More BASIC commands, expressions with variables, IDE.
+**Next up:** More BASIC commands, IDE.
 
 ## Quick Start
 
@@ -66,30 +66,38 @@ Here's what Galaxian BASIC code looks like:
 
 **Hello World:**
 ```basic
-10 CLS
-20 PRINT 10, 15, "HELLO GALAXIAN"
-30 WAIT 60
-40 GOTO 20
+10 REM Hello Galaxian
+20 CLS
+30 PRINT 5, 10, "HELLO"
+40 PRINT 5, 12, "GALAXIAN"
+50 WAIT 120
+60 GOTO 20
 ```
 ![Hello World](screenshots/hello.gif)
 
 **Sprite Animation:**
 ```basic
-10 CLS
-20 SPRITE 0, 100, 112, 24, 1
-30 WAIT 30
-40 GOTO 30
+10 REM Sprite demo
+20 CLS
+30 SPRITE 0, 100, 112, 24, 1
+40 PRINT 2, 0, "SPRITE"
+50 WAIT 30
+60 GOTO 50
 ```
 ![Sprite Animation](screenshots/sprite.gif)
 
 **Scrolling Effect:**
 ```basic
-10 CLS
-20 FOR C = 0 TO 31
-30   SCROLL C, C
-40 NEXT C
-50 PRINT 5, 10, "SCROLL!"
-60 GOTO 50
+10 REM Scrolling demo
+20 CLS
+25 LET S = 0
+60 PRINT 8, 15, "SCROLL!"
+70 WAIT 1
+80 LET S = S + 1
+90 FOR C = 4 TO 27
+100   SCROLL C, S
+110 NEXT C
+200 GOTO 70
 ```
 ![Scrolling Effect](screenshots/scroll.gif)
 
