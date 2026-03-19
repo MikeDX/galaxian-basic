@@ -1,9 +1,19 @@
 # Galaxian BASIC - Makefile
 # Build runtime for Galaxian/Scramble hardware. Run from galaxian-basic/ directory.
 # All output stays in galaxian-basic/ (build/, scramble/).
+#
+# BASIC -> C -> ROM pipeline:
+#   make PROGRAM=examples/hello.bas   # Compile BASIC to ROM
+#   make PROGRAM=examples/hello.bas run
+#
+# Default (no PROGRAM): builds demo with bouncing sprites.
 
 PROJECT_NAME ?= galaxian-scramble-game
 PARENT := ..
+
+# PROGRAM=path/to/file.bas compiles BASIC to C and builds ROM
+# Default: examples/demo.bas (bouncing sprites + scrolling)
+PROGRAM ?= examples/demo.bas
 
 # SDCC 3.8.0
 SDCC_HOME ?= $(HOME)/Downloads/sdcc-3.8.0
@@ -21,7 +31,19 @@ MAP_FILE  = $(BUILD_DIR)/$(PROJECT_NAME).map
 
 RUNTIME_C = runtime.c
 CRT0_ASM  = crt0.asm
-OBJECTS   = crt0.rel runtime.rel
+DEMO_C    = demo.c
+PROGRAM_C = $(BUILD_DIR)/program.c
+
+# When PROGRAM is set: program.rel. Else: demo.rel
+ifeq ($(PROGRAM),)
+  MAIN_OBJ = demo.rel
+  MAIN_SRC = $(DEMO_C)
+else
+  MAIN_OBJ = program.rel
+  MAIN_SRC = $(PROGRAM_C)
+endif
+
+OBJECTS   = crt0.rel runtime.rel $(MAIN_OBJ)
 
 CFLAGS = --vc --std-sdcc99 -mz80 --less-pedantic --oldralloc --no-peep --nolospre
 ASFLAGS = -plosgffwyu
@@ -36,10 +58,16 @@ help:
 	@echo "Galaxian BASIC - Makefile"
 	@echo ""
 	@echo "Targets:"
-	@echo "  make [all]  - Build ROM (default)"
+	@echo "  make [all]  - Build ROM (default: examples/demo.bas)"
 	@echo "  make run    - Build and run in MAME"
 	@echo "  make clean  - Remove build artifacts (keeps crt0.asm)"
 	@echo "  make info   - Show ROM info"
+	@echo ""
+	@echo "BASIC -> ROM pipeline:"
+	@echo "  make                          - Build demo.bas (bouncing sprites)"
+	@echo "  make PROGRAM=examples/hello.bas"
+	@echo "  make PROGRAM=examples/sprite.bas run"
+	@echo "  make PROGRAM=                  - Build C demo (no BASIC)"
 	@echo ""
 	@echo "Output: build/$(PROJECT_NAME).rom, scramble/*.2d etc"
 	@echo "MAME:   mame scramble -rompath ."
@@ -52,9 +80,31 @@ check-sdcc:
 	@echo "Using SDCC from $(SDCC_HOME)"
 	@$(CC) --version | head -1
 
+# BASIC -> C compilation - always rebuild when PROGRAM is set (it may have changed)
+.PHONY: .force-program
+.force-program:
+
+$(PROGRAM_C): $(PROGRAM) .force-program
+	@mkdir -p $(BUILD_DIR)
+	@echo "Compiling BASIC: $(PROGRAM) -> $@"
+	@python3 gbasic.py $(PROGRAM) -o $@
+
 runtime.asm: $(RUNTIME_C)
 	@echo "Compiling $(RUNTIME_C) ..."
 	$(CC) -S $(CFLAGS) $(INCLUDES) -o $@ $<
+
+program.asm: $(PROGRAM_C)
+	@echo "Compiling $(PROGRAM_C) ..."
+	$(CC) -S $(CFLAGS) $(INCLUDES) -o $@ $<
+
+program.rel: program.asm
+	@echo "Assembling program.asm ..."
+	$(AS) $(ASFLAGS) $<
+
+demo.rel: $(DEMO_C)
+	@echo "Compiling $(DEMO_C) ..."
+	$(CC) -S $(CFLAGS) $(INCLUDES) -o demo.asm $<
+	$(AS) $(ASFLAGS) demo.asm
 
 crt0.rel: $(CRT0_ASM)
 	@echo "Assembling $(CRT0_ASM) ..."
@@ -105,6 +155,7 @@ clean:
 	@echo "Cleaning build artifacts ..."
 	rm -rf $(BUILD_DIR)
 	rm -f crt0.rel runtime.rel runtime.asm
+	rm -f demo.rel demo.asm program.rel program.asm
 	rm -f *.lst *.sym *.map *.ihx *.lk *.rst *.noi main.ihx main.noi
 	@echo "Clean done. (crt0.asm preserved)"
 

@@ -141,76 +141,12 @@ void wait_for_frame(void) {
   }
 }
 
-void main(void);
-
-/* Entry point is crt0.asm (_start at 0x0000) - links first so Z80 runs it on reset */
-
-void main(void) {
-  byte frame = 0;
-  byte y0 = 4, y1 = 12, y2 = 20;   /* tile y positions */
-  byte dy0 = 1, dy1 = 1, dy2 = 255;  /* 1=down, 255=up */
-  byte scroll = 0;  /* horizontal scroll offset */
-
-  clrscr();
-
-  putstring(8, 10, "GALAXIAN BASIC");
-  putstring(6, 12, "READY");
-  putstring(5, 15, "INPUT OK");
-  putstring(2, 20, "WATCHDOG OK");
-
-  /* Scrolling strip: fill row 24 with a pattern across columns 4-27 */
-  {
-    byte x;
-    for (x = 4; x < 28; x++) {
-      putchar(x, 24, (x + 1) & 0x0F);  /* tile pattern 0-F */
-      set_column_attrib(x, 2);  /* color for scroll area */
-    }
-  }
-
-  /* Enable vblank interrupt, enable CPU interrupts (Pitfall pattern) */
+/* runtime_init - enables vblank interrupt. Call from main() at startup. */
+void runtime_init(void) {
   enable_irq = 1;
   __asm
     EI
   __endasm;
-
-  /* Main loop: compute into buffers, wait_for_frame copies to hardware at vblank */
-  while (1) {
-    /* Update position every 4 frames so movement is visible */
-    if ((frame & 3) == 0) {
-    /* Bounce y0 between 2 and 26 */
-    y0 += dy0;
-    if (y0 >= 26) { y0 = 26; dy0 = 255; }
-    else if (y0 <= 2) { y0 = 2; dy0 = 1; }
-    /* Bounce y1 between 4 and 24 */
-    y1 += dy1;
-    if (y1 >= 24) { y1 = 24; dy1 = 255; }
-    else if (y1 <= 4) { y1 = 4; dy1 = 1; }
-    /* Bounce y2 between 6 and 22 */
-    y2 += dy2;
-    if (y2 >= 22) { y2 = 22; dy2 = 255; }
-    else if (y2 <= 6) { y2 = 6; dy2 = 1; }
-    }
-
-    /* Tile coords: x fixed (4, 12, 20), y bounces. Pixel = tile * 8 */
-    set_sprite(0, 4 * 8, y0 * 8, 0x18, 1);
-    set_sprite(1, 8 * 8, y1 * 8, 0x18, 2);
-    set_sprite(2, 12 * 8, y0 * 8, 0x18, 3);
-    set_sprite(3, 16 * 8, y1 * 8, 0x18, 4);
-    set_sprite(4, 20 * 8, y2 * 8, 0x18, 5);
-    set_sprite(5, 24 * 8, y0 * 8, 0x18, 6);
-    set_sprite(6, 28 * 8, y1 * 8, 0x18, 7);
-
-    hide_sprite(7);
-
-    scroll++;
-    {
-      byte col;
-      for (col = 4; col < 28; col++) {
-        set_scroll(col, scroll);
-      }
-    }
-
-    wait_for_frame();
-    frame++;
-  }
 }
+
+/* main() is provided by the compiled program (program.c or generated.c) */

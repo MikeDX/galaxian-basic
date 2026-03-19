@@ -21,3 +21,6 @@ scramble/*.*
 *.noi
 *.cdb
 *.rst
+.DS_Store
+snap
+*.asm

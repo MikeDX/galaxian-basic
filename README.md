@@ -13,16 +13,15 @@ Galaxian BASIC is a retro programming language designed for the iconic Galaxian 
 
 ## What's Working Now
 
-The Z80 runtime is complete and running in MAME! The current demo shows:
+The Z80 runtime is complete and running in MAME! The **BASIC → C → ROM** pipeline works:
 
-- Text rendering on the arcade display
-- 7 bouncing hardware sprites
-- Per-column scrolling effects
-- Watchdog timer handling
+- **gbasic.py** — Compiles BASIC to C (CLS, PRINT, WAIT, GOTO, SPRITE, SCROLL, FOR/NEXT)
+- **Runtime engine** — Text, sprites, scrolling, watchdog
+- **Pipeline** — `make PROGRAM=examples/hello.bas` produces a runnable ROM
 
 ![Demo running in MAME](screenshots/output.gif)
 
-**Next up:** Language compiler, BASIC interpreter, and the visual IDE.
+**Next up:** More BASIC commands, expressions with variables, IDE.
 
 ## Quick Start
 
@@ -30,8 +29,24 @@ Want to see it in action? Build and run the demo:
 
 ```bash
 cd galaxian-basic
-make          # Build the ROM
+make          # Build the ROM (default demo)
 make run      # Launch in MAME
+```
+
+**Default build** compiles `examples/demo.bas` (bouncing sprites + scrolling):
+
+```bash
+make          # BASIC demo → ROM
+make run      # Launch in MAME
+```
+
+**Other BASIC programs:**
+
+```bash
+make PROGRAM=examples/hello.bas
+make PROGRAM=examples/sprite.bas run
+make PROGRAM=examples/scroll.bas run
+make PROGRAM=                  # Build C demo (no BASIC)
 ```
 
 **Requirements:** 
@@ -83,18 +98,19 @@ See the `examples/` folder for more sample programs!
 galaxian-basic/
 ├── README.md       # You are here
 ├── PLAN.md         # Technical design document
-├── Makefile        # Build system
+├── Makefile        # Build system (supports PROGRAM=file.bas)
+├── gbasic.py       # BASIC → C compiler
 ├── crt0.asm        # Z80 startup code
-├── runtime.c       # Hardware abstraction layer
+├── runtime.c       # Hardware engine (no main)
+├── runtime.h       # Runtime API for compiled programs
+├── demo.c          # Default demo (when no PROGRAM=)
 ├── gfxdata.h       # Graphics tiles and palette
 ├── slice.py        # ROM splitter for MAME
 ├── examples/       # Sample BASIC programs
 │   ├── hello.bas
 │   ├── scroll.bas
 │   └── sprite.bas
-├── src/            # Compiler (coming soon)
-├── lib/            # Runtime library (coming soon)
-└── tests/          # Test suite
+└── build/          # Generated C and ROM output
 ```
 
 ## Build Commands
