@@ -19,7 +19,7 @@ The Z80 runtime is complete and running in MAME! The **BASIC → C → ROM** pip
 - **Runtime engine** — Text, sprites, scrolling, watchdog
 - **Pipeline** — `make PROGRAM=examples/hello.bas` produces a runnable ROM
 
-![Demo running in MAME](screenshots/output.gif)
+![Demo running in MAME](screenshots/demo.gif)
 
 **Next up:** More BASIC commands, expressions with variables, IDE.
 
@@ -71,6 +71,7 @@ Here's what Galaxian BASIC code looks like:
 30 WAIT 60
 40 GOTO 20
 ```
+![Hello World](screenshots/hello.gif)
 
 **Sprite Animation:**
 ```basic
@@ -79,6 +80,7 @@ Here's what Galaxian BASIC code looks like:
 30 WAIT 30
 40 GOTO 30
 ```
+![Sprite Animation](screenshots/sprite.gif)
 
 **Scrolling Effect:**
 ```basic
@@ -89,6 +91,7 @@ Here's what Galaxian BASIC code looks like:
 50 PRINT 5, 10, "SCROLL!"
 60 GOTO 50
 ```
+![Scrolling Effect](screenshots/scroll.gif)
 
 See the `examples/` folder for more sample programs!
 
@@ -107,6 +110,7 @@ galaxian-basic/
 ├── gfxdata.h       # Graphics tiles and palette
 ├── slice.py        # ROM splitter for MAME
 ├── examples/       # Sample BASIC programs
+│   ├── demo.bas
 │   ├── hello.bas
 │   ├── scroll.bas
 │   └── sprite.bas
