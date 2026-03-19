@@ -34,4 +34,9 @@ byte joystick_right(void);
 byte joystick_up(void);
 byte joystick_down(void);
 
+/* input_pressed(n) - 0=P1L, 1=P1R, 2=P1U, 3=P1D, 4=P1Fire, 5=P1Bomb,
+ * 6=Coin1, 7=Start1, 8=P2L, 9=P2R, 10=P2U, 11=P2D, 12=P2Fire, 13=P2Bomb,
+ * 14=Coin2, 15=Start2, 16=Service */
+byte input_pressed(byte n);
+
 #endif

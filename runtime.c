@@ -115,6 +115,32 @@ byte joystick_right(void) { return (input0 & 0x10) ? 0 : 1; }
 byte joystick_up(void)    { return ((input2 & 0x10) && (input0 & 0x01)) ? 0 : 1; }
 byte joystick_down(void)  { return (input2 & 0x40) ? 0 : 1; }
 
+/* input_pressed(n) - returns 1 if input n is pressed. n: 0=P1L, 1=P1R, 2=P1U, 3=P1D,
+ * 4=P1Fire, 5=P1Bomb, 6=Coin1, 7=Start1, 8=P2L, 9=P2R, 10=P2U, 11=P2D,
+ * 12=P2Fire, 13=P2Bomb, 14=Coin2, 15=Start2, 16=Service */
+byte input_pressed(byte n) {
+  switch (n) {
+    case 0:  return (input0 & 0x20) ? 0 : 1;  /* P1 Left */
+    case 1:  return (input0 & 0x10) ? 0 : 1;  /* P1 Right */
+    case 2:  return ((input2 & 0x10) && (input0 & 0x01)) ? 0 : 1;  /* P1 Up */
+    case 3:  return (input2 & 0x40) ? 0 : 1;  /* P1 Down */
+    case 4:  return (input0 & 0x08) ? 0 : 1;  /* P1 Fire */
+    case 5:  return (input0 & 0x02) ? 0 : 1;  /* P1 Bomb */
+    case 6:  return (input0 & 0x80) ? 0 : 1;  /* Coin 1 */
+    case 7:  return (input1 & 0x80) ? 0 : 1;  /* Start 1 */
+    case 8:  return (input1 & 0x20) ? 0 : 1;  /* P2 Left */
+    case 9:  return (input1 & 0x10) ? 0 : 1;  /* P2 Right */
+    case 10: return (input0 & 0x01) ? 0 : 1; /* P2 Up */
+    case 11: return (input2 & 0x01) ? 0 : 1;  /* P2 Down */
+    case 12: return (input1 & 0x08) ? 0 : 1;   /* P2 Fire */
+    case 13: return (input1 & 0x04) ? 0 : 1;  /* P2 Bomb */
+    case 14: return (input0 & 0x40) ? 0 : 1;   /* Coin 2 */
+    case 15: return (input1 & 0x40) ? 0 : 1;   /* Start 2 */
+    case 16: return (input0 & 0x04) ? 0 : 1;  /* Service */
+    default: return 0;
+  }
+}
+
 /* Pitfall pattern: wait for vblank (HALT until interrupt), then copy to hardware.
  * "Copying the sprites here prevents any tearing" - shoot2.c wait_for_frame */
 static word framecount = 0;

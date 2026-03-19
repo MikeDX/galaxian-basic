@@ -57,6 +57,14 @@ def parse_expr(tokens: list) -> tuple:
             n = tokens[2][1]
             if 0 <= n <= 3:
                 return ('joy', n)
+    if t[0] == 'ID' and t[1] == 'INPUT':
+        if len(tokens) >= 4 and tokens[1][1] == '(' and tokens[2][0] == 'NUM' and tokens[3][1] == ')':
+            n = tokens[2][1]
+            if 0 <= n <= 16:
+                # INPUT(n) or INPUT(n)+num
+                if len(tokens) >= 6 and tokens[4][0] == 'PUNCT' and tokens[4][1] == '+' and tokens[5][0] == 'NUM':
+                    return ('add', ('input', n), tokens[5][1])
+                return ('input', n)
     if t[0] == 'ID':
         var = t[1].lower()
         if len(tokens) >= 3 and tokens[1][0] == 'PUNCT':
@@ -71,10 +79,14 @@ def parse_expr(tokens: list) -> tuple:
             if op == '+' and t2[0] == 'ID':
                 if t2[1] == 'JOY' and len(tokens) >= 6 and tokens[3][1] == '(' and tokens[4][0] == 'NUM' and tokens[5][1] == ')':
                     return ('add', var, ('joy', tokens[4][1]))
+                if t2[1] == 'INPUT' and len(tokens) >= 6 and tokens[3][1] == '(' and tokens[4][0] == 'NUM' and tokens[5][1] == ')':
+                    return ('add', var, ('input', tokens[4][1]))
                 return ('addv', var, t2[1].lower())
             if op == '-' and t2[0] == 'ID':
                 if t2[1] == 'JOY' and len(tokens) >= 6 and tokens[3][1] == '(' and tokens[4][0] == 'NUM' and tokens[5][1] == ')':
                     return ('sub', var, ('joy', tokens[4][1]))
+                if t2[1] == 'INPUT' and len(tokens) >= 6 and tokens[3][1] == '(' and tokens[4][0] == 'NUM' and tokens[5][1] == ')':
+                    return ('sub', var, ('input', tokens[4][1]))
                 return ('subv', var, t2[1].lower())
         return ('var', var)
     return None
@@ -90,8 +102,9 @@ def expr_to_c(expr: tuple) -> str:
     if t == 'var':
         return expr[1]
     if t == 'add':
+        lhs = expr_to_c(expr[1]) if isinstance(expr[1], tuple) else str(expr[1])
         rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
-        return f'({expr[1]} + {rhs})'
+        return f'({lhs} + {rhs})'
     if t == 'sub':
         rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
         return f'({expr[1]} - {rhs})'
@@ -104,7 +117,30 @@ def expr_to_c(expr: tuple) -> str:
     if t == 'joy':
         joy_funcs = ['joystick_left', 'joystick_right', 'joystick_up', 'joystick_down']
         return joy_funcs[expr[1]] + '()' if 0 <= expr[1] <= 3 else '0'
+    if t == 'input':
+        return f'input_pressed({expr[1]})' if 0 <= expr[1] <= 16 else '0'
     return '0'
+
+
+def _parse_condition(expr_tok: list) -> tuple:
+    """Parse condition: INPUT(n) op num or var op num. Returns ('input', n, op, num) or ('var', var, op, num) or None."""
+    if not expr_tok:
+        return None
+    # INPUT(n) op num
+    if (len(expr_tok) >= 6 and expr_tok[0][0] == 'ID' and expr_tok[0][1] == 'INPUT'
+            and expr_tok[1][1] == '(' and expr_tok[2][0] == 'NUM' and expr_tok[3][1] == ')'
+            and expr_tok[4][0] == 'PUNCT' and expr_tok[5][0] == 'NUM'):
+        inp_n, op, num = expr_tok[2][1], expr_tok[4][1], expr_tok[5][1]
+        if 0 <= inp_n <= 16 and op in ('>=', '<=', '<>', '>', '<', '='):
+            return ('input', inp_n, op, num)
+    # var op num
+    if len(expr_tok) >= 3 and expr_tok[0][0] == 'ID' and expr_tok[-1][0] == 'NUM':
+        var = expr_tok[0][1].lower()
+        num = expr_tok[-1][1]
+        op = expr_tok[1][1] if len(expr_tok) == 3 else (expr_tok[1][1] + expr_tok[2][1])
+        if op in ('>=', '<=', '<>', '>', '<', '='):
+            return ('var', var, op, num)
+    return None
 
 
 def parse_statement(tokens: list) -> tuple:
@@ -128,21 +164,28 @@ def parse_statement(tokens: list) -> tuple:
                     return ('LET', [var, expr])
         if kw == 'IF':
             # IF var op num THEN GOTO line (op: >=, <=, <>, >, <, =)
+            # IF INPUT(n) op num THEN GOTO line
+            # IF expr THEN ... (block form, no GOTO)
             then_idx = next((i for i, t in enumerate(rest) if t[0] == 'ID' and t[1] == 'THEN'), -1)
-            if then_idx >= 0 and then_idx + 2 < len(rest) and rest[then_idx + 1][1] == 'GOTO' and rest[then_idx + 2][0] == 'NUM':
+            if then_idx >= 0:
                 expr_tok = rest[:then_idx]
-                target = rest[then_idx + 2][1]
-                if len(expr_tok) >= 3 and expr_tok[0][0] == 'ID' and expr_tok[-1][0] == 'NUM':
-                    var = expr_tok[0][1].lower()
-                    num = expr_tok[-1][1]
-                    if len(expr_tok) == 3:  # var op num
-                        op = expr_tok[1][1]
-                    elif len(expr_tok) == 4:  # var >= num or var <= num or var <> num
-                        op = expr_tok[1][1] + expr_tok[2][1]
+                # Block form: IF expr THEN (nothing or no GOTO after)
+                has_goto = (then_idx + 2 < len(rest) and rest[then_idx + 1][1] == 'GOTO'
+                            and rest[then_idx + 2][0] == 'NUM')
+                cond = _parse_condition(expr_tok)
+                if cond:
+                    if has_goto:
+                        target = rest[then_idx + 2][1]
+                        if cond[0] == 'input':
+                            return ('IF_INPUT', [cond[1], cond[2], cond[3], target])
+                        return ('IF', [cond[1], cond[2], cond[3], target])
                     else:
-                        op = None
-                    if op in ('>=', '<=', '<>', '>', '<', '='):
-                        return ('IF', [var, op, num, target])
+                        # Block form: IF expr THEN
+                        return ('IF_BLOCK', cond)
+        if kw == 'ELSE':
+            return ('ELSE', [])
+        if kw == 'ENDIF':
+            return ('ENDIF', [])
         if kw == 'PRINT':
             # PRINT x, y, "str"
             if len(rest) >= 5 and rest[0][0] == 'NUM' and rest[1][1] == ',' and rest[2][0] == 'NUM' and rest[3][1] == ',' and rest[4][0] == 'STR':
@@ -172,13 +215,19 @@ def parse_statement(tokens: list) -> tuple:
                 if col[0] == 'ID' and val[0] == 'ID':
                     return ('COLOR', [col[1].lower(), val[1].lower()])
         if kw == 'POKE':
-            if len(rest) >= 5 and rest[1][1] == ',' and rest[3][1] == ',':
-                x, y, ch = rest[0], rest[2], rest[4]
-                def get_val(t):
-                    if t[0] == 'NUM': return ('num', t[1])
-                    if t[0] == 'ID': return ('var', t[1].lower())
-                    return None
-                xv, yv, chv = get_val(x), get_val(y), get_val(ch)
+            # POKE x, y, ch - args can be expr (num, var, INPUT(n), etc.)
+            parts = []
+            current = []
+            for t in rest:
+                if t[0] == 'PUNCT' and t[1] == ',':
+                    parts.append(current)
+                    current = []
+                else:
+                    current.append(t)
+            if current:
+                parts.append(current)
+            if len(parts) == 3:
+                xv, yv, chv = parse_expr(parts[0]), parse_expr(parts[1]), parse_expr(parts[2])
                 if xv and yv and chv:
                     return ('POKE', [xv, yv, chv])
         if kw == 'SPRITE':
@@ -260,6 +309,9 @@ def compile_basic_to_c(source: str) -> str:
             all_vars.add(args[0])
         elif cmd == 'IF':
             all_vars.add(args[0])
+        elif cmd == 'IF_BLOCK':
+            if args[0] == 'var':
+                all_vars.add(args[1])
         elif cmd == 'SPRITE':
             for a in args:
                 if isinstance(a, tuple) and a[0] == 'var':
@@ -281,6 +333,11 @@ def compile_basic_to_c(source: str) -> str:
             for a in args:
                 if isinstance(a, tuple) and a[0] == 'var':
                     all_vars.add(a[1])
+                elif isinstance(a, tuple) and a[0] in ('add', 'sub', 'addv', 'subv'):
+                    if isinstance(a[1], str):
+                        all_vars.add(a[1])
+                    if len(a) >= 3 and isinstance(a[2], str):
+                        all_vars.add(a[2])
 
     out.append('void main(void) {')
     for v in sorted(all_vars):
@@ -296,7 +353,8 @@ def compile_basic_to_c(source: str) -> str:
         pad = '  ' * indent
         pad_inner = '  ' * (indent + 1)
         if cmd != 'NEXT':
-            out.append(f'{pad}{line_labels[ln]}:')
+            label_pad = '  ' * (indent - 1) if cmd in ('ELSE', 'ENDIF') else pad
+            out.append(f'{label_pad}{line_labels[ln]}:')
         if cmd == 'REM':
             out.append(f'{pad_inner}/* REM */')
         elif cmd == 'CLS':
@@ -321,14 +379,34 @@ def compile_basic_to_c(source: str) -> str:
             var, op, num, target = args
             c_op = {'>=': '>=', '<=': '<=', '<>': '!=', '>': '>', '<': '<', '=': '=='}[op]
             out.append(f'{pad_inner}if ({var} {c_op} {num}) goto line_{target};')
+        elif cmd == 'IF_INPUT':
+            inp_n, op, num, target = args
+            c_op = {'>=': '>=', '<=': '<=', '<>': '!=', '>': '>', '<': '<', '=': '=='}[op]
+            out.append(f'{pad_inner}if (input_pressed({inp_n}) {c_op} {num}) goto line_{target};')
+        elif cmd == 'IF_BLOCK':
+            cond = args  # ('input', n, op, num) or ('var', var, op, num)
+            c_op = {'>=': '>=', '<=': '<=', '<>': '!=', '>': '>', '<': '<', '=': '=='}[cond[2]]
+            if cond[0] == 'input':
+                c_cond = f'input_pressed({cond[1]}) {c_op} {cond[3]}'
+            else:
+                c_cond = f'{cond[1]} {c_op} {cond[3]}'
+            out.append(f'{pad_inner}if ({c_cond}) {{')
+            indent += 1
+        elif cmd == 'ELSE':
+            indent -= 1
+            pad_outer = '  ' * indent
+            out.append(f'{pad_outer}}} else {{')
+            indent += 1
+        elif cmd == 'ENDIF':
+            indent -= 1
+            pad_outer = '  ' * indent
+            out.append(f'{pad_outer}}}')
         elif cmd == 'COLOR':
             col, val = args
             out.append(f'{pad_inner}set_column_attrib({col}, {val});')
         elif cmd == 'POKE':
             xv, yv, chv = args
-            def to_c(a):
-                return str(a[1]) if a[0] == 'num' else a[1]
-            out.append(f'{pad_inner}putchar({to_c(xv)}, {to_c(yv)}, {to_c(chv)});')
+            out.append(f'{pad_inner}putchar({expr_to_c(xv)}, {expr_to_c(yv)}, {expr_to_c(chv)});')
         elif cmd == 'HIDE':
             n = args[0]
             out.append(f'{pad_inner}hide_sprite({n});')
