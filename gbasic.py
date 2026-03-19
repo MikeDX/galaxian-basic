@@ -46,12 +46,17 @@ def tokenize_line(line: str) -> list:
 
 
 def parse_expr(tokens: list) -> tuple:
-    """Parse simple expr: num, var, var+num, var-num, var*num, var+var, var-var. Returns (type, args)."""
+    """Parse simple expr: num, var, JOY(n), var+num, var-num, var*num, var+var, var-var. Returns (type, args)."""
     if not tokens:
         return None
     t = tokens[0]
     if t[0] == 'NUM':
         return ('num', t[1])
+    if t[0] == 'ID' and t[1] == 'JOY':
+        if len(tokens) >= 4 and tokens[1][1] == '(' and tokens[2][0] == 'NUM' and tokens[3][1] == ')':
+            n = tokens[2][1]
+            if 0 <= n <= 3:
+                return ('joy', n)
     if t[0] == 'ID':
         var = t[1].lower()
         if len(tokens) >= 3 and tokens[1][0] == 'PUNCT':
@@ -64,8 +69,12 @@ def parse_expr(tokens: list) -> tuple:
             if op == '*' and t2[0] == 'NUM':
                 return ('mul', var, t2[1])
             if op == '+' and t2[0] == 'ID':
+                if t2[1] == 'JOY' and len(tokens) >= 6 and tokens[3][1] == '(' and tokens[4][0] == 'NUM' and tokens[5][1] == ')':
+                    return ('add', var, ('joy', tokens[4][1]))
                 return ('addv', var, t2[1].lower())
             if op == '-' and t2[0] == 'ID':
+                if t2[1] == 'JOY' and len(tokens) >= 6 and tokens[3][1] == '(' and tokens[4][0] == 'NUM' and tokens[5][1] == ')':
+                    return ('sub', var, ('joy', tokens[4][1]))
                 return ('subv', var, t2[1].lower())
         return ('var', var)
     return None
@@ -81,15 +90,20 @@ def expr_to_c(expr: tuple) -> str:
     if t == 'var':
         return expr[1]
     if t == 'add':
-        return f'({expr[1]} + {expr[2]})'
+        rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
+        return f'({expr[1]} + {rhs})'
     if t == 'sub':
-        return f'({expr[1]} - {expr[2]})'
+        rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
+        return f'({expr[1]} - {rhs})'
     if t == 'mul':
         return f'({expr[1]} * {expr[2]})'
     if t == 'addv':
         return f'({expr[1]} + {expr[2]})'
     if t == 'subv':
         return f'({expr[1]} - {expr[2]})'
+    if t == 'joy':
+        joy_funcs = ['joystick_left', 'joystick_right', 'joystick_up', 'joystick_down']
+        return joy_funcs[expr[1]] + '()' if 0 <= expr[1] <= 3 else '0'
     return '0'
 
 

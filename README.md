@@ -15,7 +15,7 @@ Galaxian BASIC is a retro programming language designed for the iconic Galaxian 
 
 The Z80 runtime is complete and running in MAME! The **BASIC → C → Z80 → ROM** pipeline works:
 
-- **gbasic.py** — Compiles BASIC to C (CLS, PRINT, POKE, COLOR, LET, IF/THEN, WAIT, GOTO, SPRITE, HIDE, SCROLL, FOR/NEXT)
+- **gbasic.py** — Compiles BASIC to C (CLS, PRINT, POKE, COLOR, LET, IF/THEN, JOY(n), WAIT, GOTO, SPRITE, HIDE, SCROLL, FOR/NEXT)
 - **SDCC** — Compiles generated C to native Z80 machine code
 - **Runtime engine** — Text, sprites, scrolling, watchdog
 - **Pipeline** — `make PROGRAM=examples/hello.bas` produces a runnable ROM (no bytecode interpreter)
@@ -47,6 +47,7 @@ make run      # Launch in MAME
 make PROGRAM=examples/hello.bas
 make PROGRAM=examples/sprite.bas run
 make PROGRAM=examples/scroll.bas run
+make PROGRAM=examples/chase.bas run   # Joystick + moving enemy
 make PROGRAM=                  # Build C demo (no BASIC)
 ```
 
@@ -102,6 +103,22 @@ Here's what Galaxian BASIC code looks like:
 ```
 ![Scrolling Effect](screenshots/scroll.gif)
 
+**Chase (joystick + AI sprite):**
+```basic
+10 REM Chase - joystick moves player, enemy bounces
+20 CLS
+30 LET PX = 100
+40 LET PY = 120
+50 LET PX = PX + JOY(1)
+60 LET PX = PX - JOY(0)
+70 LET PY = PY + JOY(3)
+80 LET PY = PY - JOY(2)
+90 SPRITE 0, PX, PY, 24, 1
+100 SPRITE 1, EX, EY, 24, 2
+110 GOTO 50
+```
+![Chase](screenshots/chase.gif)
+
 See the `examples/` folder for more sample programs!
 
 ## Project Structure
@@ -119,6 +136,7 @@ galaxian-basic/
 ├── gfxdata.h       # Graphics tiles and palette
 ├── slice.py        # ROM splitter for MAME
 ├── examples/       # Sample BASIC programs
+│   ├── chase.bas
 │   ├── demo.bas
 │   ├── hello.bas
 │   ├── scroll.bas

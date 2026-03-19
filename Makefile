@@ -66,6 +66,7 @@ help:
 	@echo "BASIC -> ROM pipeline:"
 	@echo "  make                          - Build demo.bas (bouncing sprites)"
 	@echo "  make PROGRAM=examples/hello.bas"
+	@echo "  make PROGRAM=examples/chase.bas run   - Joystick + enemy"
 	@echo "  make PROGRAM=examples/sprite.bas run"
 	@echo "  make PROGRAM=                  - Build C demo (no BASIC)"
 	@echo ""

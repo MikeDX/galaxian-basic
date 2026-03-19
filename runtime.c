@@ -42,9 +42,9 @@ static byte scroll_buf[32];
 volatile byte __at (WATCHDOG_ADDR) watchdog_reg;
 volatile byte __at (IRQ_ADDR) enable_irq;
 volatile byte __at (INPUT0) input0;
-volatile word video_framecount = 0;
 volatile byte __at (INPUT1) input1;
 volatile byte __at (INPUT2) input2;
+volatile word video_framecount = 0;
 
 #define watchdog __asm ld a, (#_watchdog_reg) __endasm
 
@@ -108,6 +108,12 @@ void set_scroll(byte col, byte val) {
 void set_column_attrib(byte col, byte attr) {
   if (col < 32) vcolumns[col].attrib = attr;
 }
+
+/* Joystick 1P - returns 1 if pressed, 0 otherwise. Scramble input bits. */
+byte joystick_left(void)  { return (input0 & 0x20) ? 0 : 1; }
+byte joystick_right(void) { return (input0 & 0x10) ? 0 : 1; }
+byte joystick_up(void)    { return ((input2 & 0x10) && (input0 & 0x01)) ? 0 : 1; }
+byte joystick_down(void)  { return (input2 & 0x40) ? 0 : 1; }
 
 /* Pitfall pattern: wait for vblank (HALT until interrupt), then copy to hardware.
  * "Copying the sprites here prevents any tearing" - shoot2.c wait_for_frame */

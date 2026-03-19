@@ -28,4 +28,10 @@ void set_column_attrib(byte col, byte attr);
 /* Frame sync - call each frame, handles watchdog */
 void wait_for_frame(void);
 
+/* Joystick 1P - returns 1 if pressed, 0 otherwise. JOY(0)=left, 1=right, 2=up, 3=down */
+byte joystick_left(void);
+byte joystick_right(void);
+byte joystick_up(void);
+byte joystick_down(void);
+
 #endif
