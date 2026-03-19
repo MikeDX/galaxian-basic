@@ -2,22 +2,23 @@
 
 **Write games for classic arcade hardware using BASIC!**
 
-Galaxian BASIC is a retro programming language designed for the iconic Galaxian and Scramble arcade machines. Write simple BASIC programs that compile directly to Z80 machine code and run on real arcade hardware or MAME.
+Galaxian BASIC is a retro programming language designed for the iconic Galaxian and Scramble arcade machines. Write simple BASIC programs that compile to C, then to Z80 machine code, and run on real arcade hardware or MAME.
 
 ## Why Galaxian BASIC?
 
 - **Authentic retro experience** — Your programs run on actual 1980s arcade hardware (or MAME)
 - **Simple BASIC syntax** — Easy to learn, with built-in commands for sprites, scrolling, sound, and input
-- **No emulation layer** — Compiles directly to ROM for native Z80 execution
+- **No bytecode interpreter** — Compiles BASIC → C → Z80 for native execution
 - **Modern tooling** — Planned IDE with graphics editor, emulator, and debugger built-in
 
 ## What's Working Now
 
-The Z80 runtime is complete and running in MAME! The **BASIC → C → ROM** pipeline works:
+The Z80 runtime is complete and running in MAME! The **BASIC → C → Z80 → ROM** pipeline works:
 
 - **gbasic.py** — Compiles BASIC to C (CLS, PRINT, POKE, COLOR, LET, IF/THEN, WAIT, GOTO, SPRITE, HIDE, SCROLL, FOR/NEXT)
+- **SDCC** — Compiles generated C to native Z80 machine code
 - **Runtime engine** — Text, sprites, scrolling, watchdog
-- **Pipeline** — `make PROGRAM=examples/hello.bas` produces a runnable ROM
+- **Pipeline** — `make PROGRAM=examples/hello.bas` produces a runnable ROM (no bytecode interpreter)
 
 ![Demo running in MAME](screenshots/demo.gif)
 
@@ -148,14 +149,13 @@ Galaxian BASIC targets the original arcade hardware:
 
 ## Roadmap
 
-**Current Status:** Runtime complete, hardware working in MAME
+**Current Status:** BASIC → C → Z80 → ROM pipeline complete. Runtime and compiler working in MAME.
 
 **Coming Soon:**
-- BASIC language compiler
+- More BASIC commands (GOSUB, sound, input)
 - Visual IDE (web or desktop)
 - Graphics editor
 - Built-in emulator and debugger
-- Node-based visual programming (future)
 
 See [PLAN.md](PLAN.md) for the complete technical roadmap.
 

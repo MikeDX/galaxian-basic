@@ -8,13 +8,13 @@ This document outlines the technical design, architecture, and implementation ro
 
 ## Overview
 
-Galaxian BASIC brings modern development tools to classic arcade hardware. Write programs in a simple BASIC dialect, compile to Z80 machine code, and run on real arcade boards or MAME.
+Galaxian BASIC brings modern development tools to classic arcade hardware. Write programs in a simple BASIC dialect, compile to C, then to Z80 machine code, and run on real arcade boards or MAME.
 
 **Key Features:**
 - BASIC syntax optimized for arcade game development
 - Direct hardware access (sprites, scrolling, sound, input)
-- Compiles to native Z80 code — no emulation overhead
-- Modern IDE with graphics editor and debugger
+- **BASIC → C → Z80 → ROM** — no bytecode interpreter, native execution
+- Modern IDE with graphics editor and debugger (planned)
 - Runs on actual 1980s arcade hardware
 
 ---
@@ -65,7 +65,7 @@ Display: 224×256 pixels, 32×32 tiles, ~32 colours.
 
 **Sprites**
 - `SPRITE n, x, y, code, color` — set sprite n (0–7)
-- `SPRITE n, -1, -1, 0, 0` — hide sprite
+- `HIDE n` — hide sprite n
 
 **Sound**
 - `SOUND cmd` — send command to AY chip
@@ -97,22 +97,20 @@ Display: 224×256 pixels, 32×32 tiles, ~32 colours.
 galaxian-basic/
 ├── PLAN.md           # This file
 ├── README.md
-├── Makefile          # Self-contained build (SDCC, slice, MAME)
+├── Makefile          # Build system (PROGRAM=file.bas)
+├── gbasic.py         # BASIC → C compiler
 ├── slice.py          # Slice ROM for MAME scramble
 ├── crt0.asm          # Z80 reset + vblank interrupt at 0x66
-├── runtime.c         # C runtime (putchar, sprites, scroll, wait_for_frame)
-├── gfxdata.h         # Tile ROM + palette (from parent gfx.h)
-├── example.c         # Reference implementation (gfxtest-style)
-├── src/
-│   ├── lexer.c       # Tokenizer (planned)
-│   ├── parser.c      # AST builder (planned)
-│   └── ...
-├── lib/
+├── runtime.c         # Hardware engine (no main)
+├── runtime.h         # Runtime API for compiled programs
+├── demo.c            # C demo (when PROGRAM=)
+├── gfxdata.h         # Tile ROM + palette
 ├── examples/
+│   ├── demo.bas
 │   ├── hello.bas
 │   ├── scroll.bas
 │   └── sprite.bas
-└── tests/
+└── build/            # Generated C and ROM output
 ```
 
 ### 3.1 Skeleton Runtime (implemented)
@@ -151,34 +149,16 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 - `set_scroll(col, val)`, `set_column_attrib(col, attr)` — per-column scroll/color
 - `wait_for_frame()` — sync to vblank, copy buffers to hardware
 
-### 3.2 Compilation Strategy
+### 3.2 Compilation Pipeline
 
-**Phase 1: Bytecode interpreter**  
-- Compile BASIC to bytecode
-- Bytecode interpreter runs on Z80
-- Validate language design and commands
+**BASIC → C → Z80 → ROM**
 
-**Phase 2: Native Z80 compilation (optional)**  
-- Direct BASIC → Z80 assembly translation
-- Link with minimal runtime library
-- Optimized ROM for maximum performance
+1. **gbasic.py** — Compiles BASIC source to C that calls the runtime API
+2. **SDCC** — Compiles generated C to Z80 machine code
+3. **Linker** — Links with runtime library (crt0 + runtime.c)
+4. **hex2rom + slice.py** — Produces ROM image for MAME
 
-### 3.3 Bytecode (interpreter)
-
-| Opcode | Args | Description |
-|--------|------|-------------|
-| PUSH | byte | Push literal |
-| ADD, SUB, MUL, DIV | — | Arithmetic |
-| LOAD, STORE | var | Variable access |
-| PRINT | — | Pop x,y,str; draw |
-| POKE | — | Pop x,y,ch; vram |
-| SPRITE | — | Pop n,x,y,code,col |
-| GOTO | line | Jump |
-| GOSUB | line | Call |
-| RETURN | — | Return |
-| IF | — | Pop; branch if true |
-| WAIT | — | Pop frames |
-| END | — | Halt |
+No bytecode or interpreter. Direct native Z80 execution.
 
 ---
 
@@ -192,43 +172,32 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 - [x] Build system — Makefile, ROM slicing, MAME integration
 - [x] Working demo — text, bouncing sprites, scrolling effects
 
-### Phase 1: Lexer & Parser
-- [ ] Tokenizer — keywords, numbers, identifiers, strings
-- [ ] Line-based parser — BASIC statement structure
-- [ ] Expression parser — arithmetic, comparisons, logic
-- [ ] AST generation — abstract syntax tree for compilation
+### Phase 1: BASIC → C Compiler ✓ Complete
+- [x] gbasic.py — tokenizer, parser, C code emission
+- [x] Core commands — CLS, PRINT, POKE, COLOR, LET, IF/THEN, WAIT, GOTO
+- [x] Sprites — SPRITE, HIDE (with variable expressions)
+- [x] Scrolling — SCROLL, FOR/NEXT with variables
+- [x] Pipeline — BASIC → C → SDCC → ROM
 
-### Phase 2: Bytecode Compiler
-- [ ] Expression compilation — stack-based bytecode
-- [ ] Statement compilation — control flow, commands
-- [ ] Line number resolution — GOTO/GOSUB targets
-- [ ] Symbol table — variable tracking
+### Phase 2: More Language Features
+- [ ] GOSUB / RETURN — subroutines
+- [ ] More expressions — *, /, MOD, AND, OR
+- [ ] FILL — block fill command
+- [ ] Sound — SOUND, BEEP
+- [ ] Input — JOY, BUTTON
+- [ ] Error handling — compile-time and runtime messages
 
-### Phase 3: Bytecode Interpreter
-- [ ] Interpreter loop — fetch, decode, execute
-- [ ] Stack machine — expression evaluation
-- [ ] Runtime integration — call into hardware API
-- [ ] Error handling — runtime error messages
-
-### Phase 4: Built-in Commands
-- [ ] Display commands — PRINT, POKE, CLS, FILL
-- [ ] Graphics commands — COLOR, SCROLL
-- [ ] Sprite commands — SPRITE (show/hide/position)
-- [ ] Sound commands — SOUND, BEEP
-- [ ] Input commands — JOY, BUTTON
-- [ ] Control commands — WAIT, GOTO, GOSUB, RETURN, END
-
-### Phase 5: IDE Development
+### Phase 3: IDE Development
 - [ ] Code editor — syntax highlighting, line numbers
 - [ ] Graphics editor — tile/sprite editing
 - [ ] Emulator integration — built-in Z80 emulator
 - [ ] Debugger — breakpoints, step, inspect
 - [ ] Project management — save/load, export ROM
 
-### Phase 6: Native Compiler (optional)
-- [ ] Z80 code generation — direct BASIC → assembly
-- [ ] Optimization passes — peephole, dead code elimination
-- [ ] Linking — combine with runtime library
+### Phase 4: Advanced (optional)
+- [ ] Direct BASIC → Z80 (skip C) — for size/speed optimization
+- [ ] Node-based visual programming
+- [ ] Community library of programs
 
 ---
 
@@ -236,29 +205,36 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 
 ### Hello World
 ```
-10 CLS
-20 PRINT 10, 15, "HELLO GALAXIAN"
-30 WAIT 60
-40 GOTO 20
+10 REM Hello Galaxian
+20 CLS
+30 PRINT 5, 10, "HELLO"
+40 PRINT 5, 12, "GALAXIAN"
+50 WAIT 120
+60 GOTO 20
 ```
 
-### Scrolling Text
+### Scrolling Effect
 ```
-10 CLS
-20 FOR C = 0 TO 31
-30   SCROLL C, C
-40 NEXT C
-50 PRINT 5, 10, "SCROLL!"
-60 WAIT 1
-70 GOTO 50
+10 REM Scrolling demo
+20 CLS
+25 LET S = 0
+60 PRINT 8, 15, "SCROLL!"
+70 WAIT 1
+80 LET S = S + 1
+90 FOR C = 4 TO 27
+100   SCROLL C, S
+110 NEXT C
+200 GOTO 70
 ```
 
 ### Sprite Demo
 ```
-10 CLS
-20 SPRITE 0, 100, 112, 24, 1
-30 WAIT 30
-40 GOTO 30
+10 REM Sprite demo
+20 CLS
+30 SPRITE 0, 100, 112, 24, 1
+40 PRINT 2, 0, "SPRITE"
+50 WAIT 30
+60 GOTO 50
 ```
 
 ---
@@ -266,10 +242,9 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 ## 6. Development Tools
 
 **Required:**
-- **SDCC 3.8.0** — Z80 cross-compiler
+- **SDCC 3.8.0** — Z80 cross-compiler (compiles generated C to machine code)
 - **MAME** — Arcade emulator for testing
-- **Python 3** — Build scripts
-- **C99 compiler** — For compiler/interpreter development
+- **Python 3** — gbasic.py compiler and build scripts
 
 **Planned:**
 - **Web IDE** — Browser-based development environment
@@ -284,14 +259,14 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 - Z80 code runs on MAME
 - Hardware sprites, scrolling, text working
 
-### Milestone 2: Language Core
-- Parse and compile BASIC programs
-- Bytecode interpreter functional
-- Basic commands working (PRINT, GOTO, END)
+### Milestone 2: BASIC Compiler ✓
+- BASIC → C → Z80 → ROM pipeline working
+- Core commands (PRINT, GOTO, SPRITE, SCROLL, LET, IF)
+- Example programs running in MAME
 
 ### Milestone 3: Full Language
 - All built-in commands implemented
-- Example programs running
+- GOSUB/RETURN, sound, input
 - Error handling and debugging
 
 ### Milestone 4: IDE
@@ -300,8 +275,7 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 - Built-in emulator and debugger
 - Export to ROM
 
-### Milestone 5: Advanced Features
+### Milestone 5: Advanced
+- Direct BASIC → Z80 (optional optimization)
 - Node-based visual programming
-- Performance optimization
-- Native Z80 compilation
 - Community library of programs
