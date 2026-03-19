@@ -29,26 +29,26 @@ SCRAMBLE_DIR = scramble
 ROM_FILE  = $(BUILD_DIR)/$(PROJECT_NAME).rom
 MAP_FILE  = $(BUILD_DIR)/$(PROJECT_NAME).map
 
-RUNTIME_C = runtime.c
-CRT0_ASM  = crt0.asm
-DEMO_C    = demo.c
+RUNTIME_C = lib/runtime.c
+CRT0_ASM  = lib/crt0.asm
+DEMO_C    = src/demo.c
 PROGRAM_C = $(BUILD_DIR)/program.c
 
 # When PROGRAM is set: program.rel. Else: demo.rel
 ifeq ($(PROGRAM),)
-  MAIN_OBJ = demo.rel
+  MAIN_OBJ = $(BUILD_DIR)/demo.rel
   MAIN_SRC = $(DEMO_C)
 else
-  MAIN_OBJ = program.rel
+  MAIN_OBJ = $(BUILD_DIR)/program.rel
   MAIN_SRC = $(PROGRAM_C)
 endif
 
-OBJECTS   = crt0.rel runtime.rel $(MAIN_OBJ)
+OBJECTS   = $(BUILD_DIR)/crt0.rel $(BUILD_DIR)/runtime.rel $(MAIN_OBJ)
 
 CFLAGS = --vc --std-sdcc99 -mz80 --less-pedantic --oldralloc --no-peep --nolospre
 ASFLAGS = -plosgffwyu
-LDFLAGS = -mjwxyu -i main.ihx -b _CODE=0x0 -b _DATA=0x4000 -b _INITIALIZER=0x3C00 -k $(SDCC_LIB) -l z80
-INCLUDES = -I.
+LDFLAGS = -mjwxyu -i $(BUILD_DIR)/main.ihx -b _CODE=0x0 -b _DATA=0x4000 -b _INITIALIZER=0x3C00 -k $(SDCC_LIB) -l z80
+INCLUDES = -I. -Ilib
 
 .PHONY: all run clean check-sdcc info help
 
@@ -88,48 +88,52 @@ check-sdcc:
 $(PROGRAM_C): $(PROGRAM) .force-program
 	@mkdir -p $(BUILD_DIR)
 	@echo "Compiling BASIC: $(PROGRAM) -> $@"
-	@python3 gbasic.py $(PROGRAM) -o $@
+	@python3 scripts/gbasic.py $(PROGRAM) -o $@
 
-runtime.asm: $(RUNTIME_C)
+$(BUILD_DIR)/runtime.asm: $(RUNTIME_C)
+	@mkdir -p $(BUILD_DIR)
 	@echo "Compiling $(RUNTIME_C) ..."
 	$(CC) -S $(CFLAGS) $(INCLUDES) -o $@ $<
 
-program.asm: $(PROGRAM_C)
+$(BUILD_DIR)/program.asm: $(PROGRAM_C)
+	@mkdir -p $(BUILD_DIR)
 	@echo "Compiling $(PROGRAM_C) ..."
 	$(CC) -S $(CFLAGS) $(INCLUDES) -o $@ $<
 
-program.rel: program.asm
+$(BUILD_DIR)/program.rel: $(BUILD_DIR)/program.asm
 	@echo "Assembling program.asm ..."
-	$(AS) $(ASFLAGS) $<
+	$(AS) $(ASFLAGS) -o $@ $<
 
-demo.rel: $(DEMO_C)
+$(BUILD_DIR)/demo.rel: $(DEMO_C)
+	@mkdir -p $(BUILD_DIR)
 	@echo "Compiling $(DEMO_C) ..."
-	$(CC) -S $(CFLAGS) $(INCLUDES) -o demo.asm $<
-	$(AS) $(ASFLAGS) demo.asm
+	$(CC) -S $(CFLAGS) $(INCLUDES) -o $(BUILD_DIR)/demo.asm $<
+	$(AS) $(ASFLAGS) -o $@ $(BUILD_DIR)/demo.asm
 
-crt0.rel: $(CRT0_ASM)
+$(BUILD_DIR)/crt0.rel: $(CRT0_ASM)
+	@mkdir -p $(BUILD_DIR)
 	@echo "Assembling $(CRT0_ASM) ..."
-	$(AS) $(ASFLAGS) $<
+	$(AS) $(ASFLAGS) -o $@ $<
 
-runtime.rel: runtime.asm
+$(BUILD_DIR)/runtime.rel: $(BUILD_DIR)/runtime.asm
 	@echo "Assembling runtime.asm ..."
-	$(AS) $(ASFLAGS) $<
+	$(AS) $(ASFLAGS) -o $@ $<
 
-main.ihx: $(OBJECTS)
+$(BUILD_DIR)/main.ihx: $(OBJECTS)
 	@echo "Linking ..."
 	$(LD) $(LDFLAGS) $(OBJECTS)
 
-$(ROM_FILE): main.ihx
+$(ROM_FILE): $(BUILD_DIR)/main.ihx
 	@mkdir -p $(BUILD_DIR)
 	@echo "Creating ROM ..."
-	@python3 $(PARENT)/hex2rom.py main.ihx $@ || (echo "hex2rom.py failed"; exit 1)
+	@python3 $(PARENT)/hex2rom.py $(BUILD_DIR)/main.ihx $@ || (echo "hex2rom.py failed"; exit 1)
 	@echo "ROM: $@"
 	@ls -la $@
 
 post-build: $(ROM_FILE)
 	@echo "Slicing ROM for MAME scramble ..."
 	@mkdir -p $(SCRAMBLE_DIR)
-	@python3 slice.py
+	@python3 scripts/slice.py
 	@if [ -f "$(PARENT)/sound.bin" ]; then \
 		echo "Extracting sound ROMs ..."; \
 		(cd $(PARENT) && python3 slicesound.py); \
@@ -151,14 +155,12 @@ run: all
 	@echo "Running MAME scramble ..."
 	mame scramble -rompath . -window
 
-# Clean: remove ONLY generated files. Never touch crt0.asm (source).
+# Clean: remove generated files. Source in lib/, src/, scripts/ preserved.
 clean:
 	@echo "Cleaning build artifacts ..."
 	rm -rf $(BUILD_DIR)
-	rm -f crt0.rel runtime.rel runtime.asm
-	rm -f demo.rel demo.asm program.rel program.asm
-	rm -f *.lst *.sym *.map *.ihx *.lk *.rst *.noi main.ihx main.noi
-	@echo "Clean done. (crt0.asm preserved)"
+	rm -f *.lst *.sym *.map *.ihx *.lk *.rst *.noi
+	@echo "Clean done."
 
 info: $(ROM_FILE)
 	@echo "=== Galaxian BASIC Build ==="

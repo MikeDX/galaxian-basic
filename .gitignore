@@ -23,4 +23,3 @@ scramble/*.*
 *.rst
 .DS_Store
 snap
-*.asm

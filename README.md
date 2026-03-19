@@ -62,9 +62,9 @@ make PROGRAM=                  # Build C demo (no BASIC)
 **Renumber a BASIC file:**
 
 ```bash
-python renum.py examples/example.bas -n        # Dry run (print only)
-python renum.py examples/example.bas          # Renumber in place
-python renum.py examples/example.bas -o out.bas --start 100 --step 10
+python scripts/renum.py examples/example.bas -n        # Dry run (print only)
+python scripts/renum.py examples/example.bas           # Renumber in place
+python scripts/renum.py examples/example.bas -o out.bas --start 100 --step 10
 ```
 
 **Requirements:** 
@@ -144,20 +144,29 @@ galaxian-basic/
 ├── README.md       # You are here
 ├── PLAN.md         # Technical design document
 ├── Makefile        # Build system (supports PROGRAM=file.bas)
-├── gbasic.py       # BASIC → C compiler
-├── crt0.asm        # Z80 startup code
-├── runtime.c       # Hardware engine (no main)
-├── runtime.h       # Runtime API for compiled programs
-├── demo.c          # Default demo (when no PROGRAM=)
-├── gfxdata.h       # Graphics tiles and palette
-├── slice.py        # ROM splitter for MAME
+├── lib/            # Runtime library
+│   ├── runtime.c   # Hardware engine (no main)
+│   ├── runtime.h   # Runtime API for compiled programs
+│   ├── crt0.asm    # Z80 startup code
+│   └── gfxdata.h   # Graphics tiles and palette
+├── src/            # Application source
+│   ├── demo.c      # Default demo (when no PROGRAM=)
+│   └── example.c   # Reference C implementation (matches example.bas)
+├── scripts/        # Python tools
+│   ├── gbasic.py   # BASIC → C compiler
+│   ├── renum.py    # Renumber .bas files (updates GOTO targets)
+│   └── slice.py    # ROM splitter for MAME
 ├── examples/       # Sample BASIC programs
+│   ├── example.bas # Full demo (chars, sprites, missiles, explosion)
 │   ├── chase.bas
 │   ├── demo.bas
 │   ├── hello.bas
 │   ├── scroll.bas
-│   └── sprite.bas
+│   ├── sprite.bas
+│   ├── input_test.bas
+│   └── if_else_test.bas
 └── build/          # Generated C and ROM output
+    └── program.c   # Generated C from BASIC
 ```
 
 ## Build Commands

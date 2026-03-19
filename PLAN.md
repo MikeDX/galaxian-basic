@@ -102,15 +102,18 @@ galaxian-basic/
 ├── PLAN.md           # This file
 ├── README.md
 ├── Makefile          # Build system (PROGRAM=file.bas)
-├── gbasic.py         # BASIC → C compiler
-├── renum.py          # Renumber .bas files (updates GOTO targets)
-├── slice.py          # Slice ROM for MAME scramble
-├── crt0.asm          # Z80 reset + vblank interrupt at 0x66
-├── runtime.c         # Hardware engine (no main)
-├── runtime.h         # Runtime API for compiled programs
-├── example.c         # Reference C implementation (matches example.bas)
-├── demo.c            # C demo (when PROGRAM=)
-├── gfxdata.h         # Tile ROM + palette
+├── lib/              # Runtime library
+│   ├── runtime.c     # Hardware engine (no main)
+│   ├── runtime.h     # Runtime API for compiled programs
+│   ├── crt0.asm      # Z80 reset + vblank interrupt at 0x66
+│   └── gfxdata.h     # Tile ROM + palette
+├── src/              # Application source
+│   ├── demo.c        # C demo (when PROGRAM=)
+│   └── example.c     # Reference C implementation (matches example.bas)
+├── scripts/          # Python tools
+│   ├── gbasic.py     # BASIC → C compiler
+│   ├── renum.py      # Renumber .bas files (updates GOTO targets)
+│   └── slice.py      # Slice ROM for MAME scramble
 ├── examples/
 │   ├── example.bas   # Full demo (chars, sprites, missiles, explosion)
 │   ├── chase.bas
@@ -279,7 +282,7 @@ The `examples/example.bas` program demonstrates all features, matching the refer
 - **Python 3** — gbasic.py compiler and build scripts
 
 **Available:**
-- **renum.py** — Renumber .bas files; updates GOTO and IF...THEN GOTO targets. Usage: `renum.py file.bas [-o out.bas] [--start 10] [--step 10] [-n]`
+- **scripts/renum.py** — Renumber .bas files; updates GOTO and IF...THEN GOTO targets. Usage: `python scripts/renum.py file.bas [-o out.bas] [--start 10] [--step 10] [-n]`
 
 **Planned:**
 - **Web IDE** — Browser-based development environment
