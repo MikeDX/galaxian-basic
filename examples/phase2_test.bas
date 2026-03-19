@@ -1,0 +1,14 @@
+10 REM Phase 2 test - expressions and FILL
+20 CLS
+25 LET G = 0
+30 LET A = 10
+40 LET B = 3
+50 LET C = A / B
+60 LET D = A MOD B
+70 LET E = 15 AND 7
+80 LET F = 8 OR 4
+90 FILL 5, 5, 10, 8, G
+100 PRINT 2, 2, "PHASE2 TEST"
+110 WAIT 60
+115 LET G = G + 1
+120 GOTO 30

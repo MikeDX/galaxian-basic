@@ -65,6 +65,7 @@ Display: 224×256 pixels, 32×32 tiles, ~32 colours.
 - `COLOR col, attr` — set column colour (expressions: F+2, etc.)
 - `SCROLL col, val` — set column scroll (variable or literal)
 - `PUTSHAPE x, y, ofs` — 2×2 tile block (ofs+2,ofs; ofs+3,ofs+1)
+- `FILL x, y, w, h, ch` — fill rectangle with char
 
 **Sprites**
 - `SPRITE n, x, y, code, color` — set sprite n (0–7)
@@ -78,18 +79,19 @@ Display: 224×256 pixels, 32×32 tiles, ~32 colours.
 **Control**
 - `WAIT n` — wait n frames (n=1 optimizes to single wait_for_frame)
 - `GOTO n` — jump to line
+- `GOSUB n` / `RETURN` — subroutine (switch-based dispatch)
 - `IF expr THEN` / `ELSE` / `ENDIF` — block form
 - `IF var op num THEN GOTO n` — conditional jump
 - `FOR var = start TO end` / `NEXT var`
 
 **Planned**
-- `GOSUB n` / `RETURN` — subroutine
 - `SOUND`, `BEEP` — sound
-- `FILL x, y, w, h, ch` — block fill
 
 ### 2.3 Expressions (implemented)
 
-- Arithmetic: `+`, `-`, `*` (var+num, var-num, var*num, num+var*num)
+- Arithmetic: `+`, `-`, `*`, `/` (var+num, var-num, var*num, var/var, num/num)
+- Modulo: `MOD` (var MOD num, var MOD var)
+- Bitwise: `AND`, `OR` (var AND num, var OR var, etc.)
 - Comparisons: `=`, `<>`, `<`, `>`, `<=`, `>=` (in IF conditions)
 - Functions: `JOY(n)`, `INPUT(n)` (in expressions)
 
@@ -206,10 +208,10 @@ No bytecode or interpreter. Direct native Z80 execution.
 - [x] Pipeline — BASIC → C → SDCC → ROM
 - [x] Compiler optimizations — WAIT 1 → wait_for_frame(), labels only for branch targets
 
-### Phase 2: More Language Features
-- [ ] GOSUB / RETURN — subroutines
-- [ ] More expressions — /, MOD, AND, OR
-- [ ] FILL — block fill command
+### Phase 2: More Language Features ✓ (mostly complete)
+- [x] GOSUB / RETURN — subroutines (switch-based dispatch)
+- [x] More expressions — /, MOD, AND, OR (var/var and num/num)
+- [x] FILL — block fill command
 - [ ] Sound — SOUND, BEEP
 - [ ] Error handling — compile-time and runtime messages
 

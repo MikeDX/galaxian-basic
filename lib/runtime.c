@@ -8,7 +8,7 @@
  * Inputs:  input0, input1, input2 (joystick, buttons, coin, start)
  * Outputs: watchdog (must be called or hardware resets)
  */
-
+#include <string.h>
 typedef unsigned char byte;
 typedef unsigned short word;
 
@@ -66,6 +66,16 @@ void memset_safe(void *dest, char ch, word size) {
 /* Pitfall platform.h line 379: vram[29-x][y] = ch */
 void putchar(byte x, byte y, byte ch) {
   if (x < 32 && y < 32) VRAM_PTR[(29 - x) * 32 + y] = ch;
+}
+
+/* Fill rectangle (x,y) size w*h with character ch */
+void fill(byte x, byte y, byte w, byte h, byte ch) {
+  byte ix;
+  if (x >= 32 || y >= 32) return;
+  if (x + w > 32) w = 32 - x;
+  if (y + h > 32) h = 32 - y;
+  for (ix = 0; ix < w; ix++)
+    memset(&vram[29 - (x + ix)][y], ch, h);
 }
 
 /* 2x2 tile block - matches example.c putshape layout */

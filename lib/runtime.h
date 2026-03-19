@@ -16,6 +16,7 @@ void runtime_init(void);
 void clrscr(void);
 void putchar(byte x, byte y, byte ch);
 void putshape(byte x, byte y, byte ofs);  /* 2x2 tile block: [ofs+2,ofs; ofs+3,ofs+1] */
+void fill(byte x, byte y, byte w, byte h, byte ch);  /* fill rectangle with char */
 void putstring(byte x, byte y, const char *s);
 
 /* Sprites */

@@ -57,6 +57,22 @@ def parse_expr(tokens: list) -> tuple:
         # num+var (e.g. 48+I)
         if len(tokens) >= 3 and tokens[1][0] == 'PUNCT' and tokens[1][1] == '+' and tokens[2][0] == 'ID':
             return ('add', t[1], tokens[2][1].lower())
+        # num/num, num MOD num, num AND num, num OR num
+        if len(tokens) >= 3 and tokens[2][0] == 'NUM':
+            op = tokens[1]
+            if op[0] == 'PUNCT' and op[1] == '/':
+                return ('div', t[1], tokens[2][1])
+            if op[0] == 'PUNCT' and op[1] == '%':
+                return ('mod', t[1], tokens[2][1])
+            if op[0] == 'PUNCT' and op[1] == '&':
+                return ('and', t[1], tokens[2][1])
+            if op[0] == 'PUNCT' and op[1] == '|':
+                return ('or', t[1], tokens[2][1])
+        if len(tokens) >= 3 and tokens[1][0] == 'ID' and tokens[2][0] == 'NUM':
+            op2 = tokens[1][1]
+            if op2 == 'MOD': return ('mod', t[1], tokens[2][1])
+            if op2 == 'AND': return ('and', t[1], tokens[2][1])
+            if op2 == 'OR': return ('or', t[1], tokens[2][1])
         return ('num', t[1])
     if t[0] == 'ID' and t[1] == 'JOY':
         if len(tokens) >= 4 and tokens[1][1] == '(' and tokens[2][0] == 'NUM' and tokens[3][1] == ')':
@@ -88,6 +104,22 @@ def parse_expr(tokens: list) -> tuple:
                     if tokens[4][0] == 'ID':
                         return ('add', ('mul', var, t2[1]), tokens[4][1].lower())
                 return ('mul', var, t2[1])
+            if op == '/' and t2[0] == 'NUM':
+                return ('div', var, t2[1])
+            if op == '/' and t2[0] == 'ID':
+                return ('divv', var, t2[1].lower())
+            if op == '%' and t2[0] == 'NUM':
+                return ('mod', var, t2[1])
+            if op == '%' and t2[0] == 'ID':
+                return ('modv', var, t2[1].lower())
+            if op == '&' and t2[0] == 'NUM':
+                return ('and', var, t2[1])
+            if op == '&' and t2[0] == 'ID':
+                return ('andv', var, t2[1].lower())
+            if op == '|' and t2[0] == 'NUM':
+                return ('or', var, t2[1])
+            if op == '|' and t2[0] == 'ID':
+                return ('orv', var, t2[1].lower())
             if op == '+' and t2[0] == 'ID':
                 if t2[1] == 'JOY' and len(tokens) >= 6 and tokens[3][1] == '(' and tokens[4][0] == 'NUM' and tokens[5][1] == ')':
                     return ('add', var, ('joy', tokens[4][1]))
@@ -100,6 +132,22 @@ def parse_expr(tokens: list) -> tuple:
                 if t2[1] == 'INPUT' and len(tokens) >= 6 and tokens[3][1] == '(' and tokens[4][0] == 'NUM' and tokens[5][1] == ')':
                     return ('sub', var, ('input', tokens[4][1]))
                 return ('subv', var, t2[1].lower())
+        # var MOD num, var AND num, var OR num (two-token operators)
+        if len(tokens) >= 3 and tokens[1][0] == 'ID':
+            op2 = tokens[1][1]
+            t2 = tokens[2]
+            if op2 == 'MOD' and t2[0] == 'NUM':
+                return ('mod', var, t2[1])
+            if op2 == 'MOD' and t2[0] == 'ID':
+                return ('modv', var, t2[1].lower())
+            if op2 == 'AND' and t2[0] == 'NUM':
+                return ('and', var, t2[1])
+            if op2 == 'AND' and t2[0] == 'ID':
+                return ('andv', var, t2[1].lower())
+            if op2 == 'OR' and t2[0] == 'NUM':
+                return ('or', var, t2[1])
+            if op2 == 'OR' and t2[0] == 'ID':
+                return ('orv', var, t2[1].lower())
         return ('var', var)
     return None
 
@@ -122,6 +170,38 @@ def expr_to_c(expr: tuple) -> str:
         return f'({expr[1]} - {rhs})'
     if t == 'mul':
         return f'({expr[1]} * {expr[2]})'
+    if t == 'div':
+        lhs = expr_to_c(expr[1]) if isinstance(expr[1], tuple) else str(expr[1])
+        rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
+        return f'((byte)({lhs} / {rhs}))'
+    if t == 'mod':
+        lhs = expr_to_c(expr[1]) if isinstance(expr[1], tuple) else str(expr[1])
+        rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
+        return f'({lhs} % {rhs})'
+    if t == 'and':
+        lhs = expr_to_c(expr[1]) if isinstance(expr[1], tuple) else str(expr[1])
+        rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
+        return f'({lhs} & {rhs})'
+    if t == 'or':
+        lhs = expr_to_c(expr[1]) if isinstance(expr[1], tuple) else str(expr[1])
+        rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
+        return f'({lhs} | {rhs})'
+    if t == 'divv':
+        lhs = expr_to_c(expr[1]) if isinstance(expr[1], tuple) else str(expr[1])
+        rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
+        return f'((byte)({lhs} / {rhs}))'
+    if t == 'modv':
+        lhs = expr_to_c(expr[1]) if isinstance(expr[1], tuple) else str(expr[1])
+        rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
+        return f'({lhs} % {rhs})'
+    if t == 'andv':
+        lhs = expr_to_c(expr[1]) if isinstance(expr[1], tuple) else str(expr[1])
+        rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
+        return f'({lhs} & {rhs})'
+    if t == 'orv':
+        lhs = expr_to_c(expr[1]) if isinstance(expr[1], tuple) else str(expr[1])
+        rhs = expr_to_c(expr[2]) if isinstance(expr[2], tuple) else str(expr[2])
+        return f'({lhs} | {rhs})'
     if t == 'addv':
         return f'({expr[1]} + {expr[2]})'
     if t == 'subv':
@@ -211,6 +291,11 @@ def parse_statement(tokens: list) -> tuple:
         if kw == 'GOTO':
             if rest and rest[0][0] == 'NUM':
                 return ('GOTO', [rest[0][1]])
+        if kw == 'GOSUB':
+            if rest and rest[0][0] == 'NUM':
+                return ('GOSUB', [rest[0][1]])
+        if kw == 'RETURN':
+            return ('RETURN', [])
         if kw == 'HIDE':
             if rest and (rest[0][0] == 'NUM' or rest[0][0] == 'ID'):
                 n = rest[0][1] if rest[0][0] == 'NUM' else rest[0][1].lower()
@@ -247,6 +332,22 @@ def parse_statement(tokens: list) -> tuple:
                 xv, yv, chv = parse_expr(parts[0]), parse_expr(parts[1]), parse_expr(parts[2])
                 if xv and yv and chv:
                     return ('POKE', [xv, yv, chv])
+        if kw == 'FILL':
+            # FILL x, y, w, h, ch - fill rectangle
+            parts = []
+            current = []
+            for t in rest:
+                if t[0] == 'PUNCT' and t[1] == ',':
+                    parts.append(current)
+                    current = []
+                else:
+                    current.append(t)
+            if current:
+                parts.append(current)
+            if len(parts) == 5:
+                xv, yv, wv, hv, chv = (parse_expr(p) for p in parts)
+                if all((xv, yv, wv, hv, chv)):
+                    return ('FILL', [xv, yv, wv, hv, chv])
         if kw == 'PUTSHAPE':
             # PUTSHAPE x, y, ofs - 2x2 tile block, args are expr
             parts = []
@@ -356,6 +457,19 @@ def compile_basic_to_c(source: str) -> str:
             all_vars.add(args[0])
         elif cmd == 'LET':
             all_vars.add(args[0])
+            def _let_expr_vars(e):
+                if isinstance(e, tuple):
+                    if e[0] == 'var': all_vars.add(e[1])
+                    elif e[0] in ('mul', 'div', 'divv', 'mod', 'modv', 'and', 'andv', 'or', 'orv'):
+                        if isinstance(e[1], str): all_vars.add(e[1])
+                        if len(e) >= 3 and isinstance(e[2], str): all_vars.add(e[2])
+                    elif e[0] in ('add', 'sub', 'addv', 'subv'):
+                        if isinstance(e[1], str): all_vars.add(e[1])
+                        elif isinstance(e[1], tuple): _let_expr_vars(e[1])
+                        if len(e) >= 3:
+                            if isinstance(e[2], str): all_vars.add(e[2])
+                            elif isinstance(e[2], tuple): _let_expr_vars(e[2])
+            _let_expr_vars(args[1])
         elif cmd == 'IF':
             all_vars.add(args[0])
         elif cmd == 'IF_BLOCK':
@@ -415,6 +529,17 @@ def compile_basic_to_c(source: str) -> str:
                         if len(e) >= 3 and isinstance(e[2], str): all_vars.add(e[2])
             for a in args:
                 if isinstance(a, tuple): _poke_vars(a)
+        elif cmd == 'FILL':
+            def _fill_vars(e):
+                if isinstance(e, tuple):
+                    if e[0] == 'var': all_vars.add(e[1])
+                    elif e[0] == 'mul' and isinstance(e[1], str): all_vars.add(e[1])
+                    elif e[0] in ('add', 'sub', 'addv', 'subv', 'div', 'mod', 'and', 'or'):
+                        if isinstance(e[1], str): all_vars.add(e[1])
+                        elif isinstance(e[1], tuple): _fill_vars(e[1])
+                        if len(e) >= 3 and isinstance(e[2], str): all_vars.add(e[2])
+            for a in args:
+                if isinstance(a, tuple): _fill_vars(a)
         elif cmd == 'PUTSHAPE':
             def _putshape_vars(e):
                 if isinstance(e, tuple):
@@ -427,12 +552,31 @@ def compile_basic_to_c(source: str) -> str:
             for a in args:
                 if isinstance(a, tuple): _putshape_vars(a)
 
+    # Check if we need GOSUB/RETURN (switch-based dispatch)
+    has_gosub = any(cmd in ('GOSUB', 'RETURN') for _, (cmd, _) in lines)
+
+    # Build next_line map for GOSUB mode
+    line_nums = sorted({ln for ln, _ in lines})
+    ln_to_next = {}
+    for i, ln in enumerate(line_nums):
+        ln_to_next[ln] = line_nums[i + 1] if i + 1 < len(line_nums) else 0
+
     out.append('void main(void) {')
     for v in sorted(all_vars):
         out.append(f'  byte {v} = 0;')
+    if has_gosub:
+        out.append('  byte _g[16];')
+        out.append('  byte _sp = 0;')
+        out.append('  byte _ln = ' + str(line_nums[0]) + ';')
     out.append('')
     out.append('  runtime_init();')
     out.append('')
+
+    if has_gosub:
+        out.append('  for (;;) {')
+        out.append('    switch (_ln) {')
+        out.append('      case 0: return;')
+        out.append('')
 
     # Collect branch targets (GOTO, IF...GOTO, IF_INPUT...GOTO)
     branch_targets = set()
@@ -446,11 +590,19 @@ def compile_basic_to_c(source: str) -> str:
 
     line_labels = {ln: f'line_{ln}' for ln, _ in lines}
     indent = 2
+    if has_gosub:
+        indent += 1  # inside switch
+    for_stack = []  # track FOR line numbers for GOSUB mode
+    no_break_cmds = ('GOTO', 'GOSUB', 'RETURN', 'IF', 'IF_INPUT', 'IF_BLOCK', 'ELSE', 'ENDIF', 'FOR')
     for ln, (cmd, args) in lines:
         pad = '  ' * indent
         pad_inner = '  ' * (indent + 1)
         needs_label = ln in branch_targets
-        if cmd != 'NEXT' and needs_label:
+        if has_gosub and cmd not in ('NEXT', 'ELSE', 'ENDIF'):
+            out.append(f'{pad}case {ln}:')
+            pad = '  ' * (indent + 1)
+            pad_inner = '  ' * (indent + 2)
+        elif cmd != 'NEXT' and needs_label and not has_gosub:
             label_pad = '  ' * (indent - 1) if cmd in ('ELSE', 'ENDIF') else pad
             out.append(f'{label_pad}{line_labels[ln]}:')
         if cmd == 'REM':
@@ -472,18 +624,35 @@ def compile_basic_to_c(source: str) -> str:
                 out.append(f'{pad_inner}{{ byte _i; for (_i = 0; _i < {n}; _i++) wait_for_frame(); }}')
         elif cmd == 'GOTO':
             target = args[0]
-            out.append(f'{pad_inner}goto line_{target};')
+            if has_gosub:
+                out.append(f'{pad_inner}_ln = {target}; break;')
+            else:
+                out.append(f'{pad_inner}goto line_{target};')
         elif cmd == 'LET':
             var, expr = args
             out.append(f'{pad_inner}{var} = {expr_to_c(expr)};')
+        elif cmd == 'GOSUB':
+            target = args[0]
+            next_ln = ln_to_next.get(ln, 0)
+            out.append(f'{pad_inner}_g[_sp++] = {next_ln}; _ln = {target}; break;')
+        elif cmd == 'RETURN':
+            out.append(f'{pad_inner}_ln = _g[--_sp]; break;')
         elif cmd == 'IF':
             var, op, num, target = args
             c_op = {'>=': '>=', '<=': '<=', '<>': '!=', '>': '>', '<': '<', '=': '=='}[op]
-            out.append(f'{pad_inner}if ({var} {c_op} {num}) goto line_{target};')
+            if has_gosub:
+                next_ln = ln_to_next.get(ln, 0)
+                out.append(f'{pad_inner}if ({var} {c_op} {num}) _ln = {target}; else _ln = {next_ln}; break;')
+            else:
+                out.append(f'{pad_inner}if ({var} {c_op} {num}) goto line_{target};')
         elif cmd == 'IF_INPUT':
             inp_n, op, num, target = args
             c_op = {'>=': '>=', '<=': '<=', '<>': '!=', '>': '>', '<': '<', '=': '=='}[op]
-            out.append(f'{pad_inner}if (input_pressed({inp_n}) {c_op} {num}) goto line_{target};')
+            if has_gosub:
+                next_ln = ln_to_next.get(ln, 0)
+                out.append(f'{pad_inner}if (input_pressed({inp_n}) {c_op} {num}) _ln = {target}; else _ln = {next_ln}; break;')
+            else:
+                out.append(f'{pad_inner}if (input_pressed({inp_n}) {c_op} {num}) goto line_{target};')
         elif cmd == 'IF_BLOCK':
             cond = args  # ('input', n, op, num) or ('var', var, op, num)
             c_op = {'>=': '>=', '<=': '<=', '<>': '!=', '>': '>', '<': '<', '=': '=='}[cond[2]]
@@ -508,6 +677,9 @@ def compile_basic_to_c(source: str) -> str:
         elif cmd == 'POKE':
             xv, yv, chv = args
             out.append(f'{pad_inner}putchar({expr_to_c(xv)}, {expr_to_c(yv)}, {expr_to_c(chv)});')
+        elif cmd == 'FILL':
+            xv, yv, wv, hv, chv = args
+            out.append(f'{pad_inner}fill({expr_to_c(xv)}, {expr_to_c(yv)}, {expr_to_c(wv)}, {expr_to_c(hv)}, {expr_to_c(chv)});')
         elif cmd == 'PUTSHAPE':
             xv, yv, ofsv = args
             out.append(f'{pad_inner}putshape({expr_to_c(xv)}, {expr_to_c(yv)}, {expr_to_c(ofsv)});')
@@ -523,18 +695,36 @@ def compile_basic_to_c(source: str) -> str:
             out.append(f'{pad_inner}set_scroll({col}, {val});')
         elif cmd == 'FOR':
             var, start, end = args
+            if has_gosub:
+                for_stack.append(ln)
             out.append(f'{pad_inner}for ({var} = {start}; {var} <= {end}; {var}++) {{')
             indent += 1
         elif cmd == 'NEXT':
             indent -= 1
             pad_next = '  ' * indent
-            if needs_label:
-                out.append(f'{pad_next}{line_labels[ln]}: ;')
+            if has_gosub and for_stack:
+                for_ln = for_stack.pop()
+                next_ln = ln_to_next.get(for_ln, 0)
+                if needs_label:
+                    out.append(f'{pad_next}{line_labels[ln]}: ;')
+                else:
+                    out.append(f'{pad_next};')
+                out.append(f'{pad_next}}}')
+                out.append(f'{pad_next}_ln = {next_ln}; break;')
             else:
-                out.append(f'{pad_next};')
-            out.append(f'{pad_next}}}')
+                if needs_label:
+                    out.append(f'{pad_next}{line_labels[ln]}: ;')
+                else:
+                    out.append(f'{pad_next};')
+                out.append(f'{pad_next}}}')
+        if has_gosub and cmd not in no_break_cmds and cmd != 'NEXT':
+            next_ln = ln_to_next.get(ln, 0)
+            out.append(f'{pad_inner}_ln = {next_ln}; break;')
         out.append('')
 
+    if has_gosub:
+        out.append('    }')
+        out.append('  }')
     out.append('}')
 
     return '\n'.join(out)
