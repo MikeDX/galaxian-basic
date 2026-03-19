@@ -15,14 +15,19 @@ Galaxian BASIC is a retro programming language designed for the iconic Galaxian 
 
 The Z80 runtime is complete and running in MAME! The **BASIC → C → Z80 → ROM** pipeline works:
 
-- **gbasic.py** — Compiles BASIC to C (CLS, PRINT, POKE, COLOR, LET, IF/THEN, JOY(n), WAIT, GOTO, SPRITE, HIDE, SCROLL, FOR/NEXT)
+- **gbasic.py** — Compiles BASIC to C with full command set:
+  - Display: CLS, PRINT, POKE, COLOR, SCROLL, PUTSHAPE (2×2 tile blocks)
+  - Sprites: SPRITE, HIDE, MISSILE (hardware missile layer)
+  - Control: LET, IF/THEN/ELSE/ENDIF, FOR/NEXT, GOTO, WAIT
+  - Input: JOY(n), INPUT(n)
 - **SDCC** — Compiles generated C to native Z80 machine code
-- **Runtime engine** — Text, sprites, scrolling, watchdog
+- **Runtime engine** — Text, sprites, missiles, scrolling, watchdog
 - **Pipeline** — `make PROGRAM=examples/hello.bas` produces a runnable ROM (no bytecode interpreter)
+- **renum.py** — Renumber .bas files and update GOTO targets
 
 ![Demo running in MAME](screenshots/demo.gif)
 
-**Next up:** More BASIC commands, IDE.
+**Next up:** GOSUB/RETURN, sound, IDE.
 
 ## Quick Start
 
@@ -48,7 +53,18 @@ make PROGRAM=examples/hello.bas
 make PROGRAM=examples/sprite.bas run
 make PROGRAM=examples/scroll.bas run
 make PROGRAM=examples/chase.bas run   # Joystick + moving enemy
+make PROGRAM=examples/example.bas run # Full demo (chars, sprites, missiles, explosion)
+make PROGRAM=examples/input_test.bas  # Input/button display
+make PROGRAM=examples/if_else_test.bas
 make PROGRAM=                  # Build C demo (no BASIC)
+```
+
+**Renumber a BASIC file:**
+
+```bash
+python renum.py examples/example.bas -n        # Dry run (print only)
+python renum.py examples/example.bas          # Renumber in place
+python renum.py examples/example.bas -o out.bas --start 100 --step 10
 ```
 
 **Requirements:** 
@@ -167,10 +183,10 @@ Galaxian BASIC targets the original arcade hardware:
 
 ## Roadmap
 
-**Current Status:** BASIC → C → Z80 → ROM pipeline complete. Runtime and compiler working in MAME.
+**Current Status:** BASIC → C → Z80 → ROM pipeline complete. Full command set: display, sprites, missiles, scrolling, input (JOY, INPUT), control flow. Compiler optimizations (WAIT 1, labels, COLOR hoisting). `renum.py` for line renumbering.
 
 **Coming Soon:**
-- More BASIC commands (GOSUB, sound, input)
+- GOSUB/RETURN, sound, more expressions
 - Visual IDE (web or desktop)
 - Graphics editor
 - Built-in emulator and debugger

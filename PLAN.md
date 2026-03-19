@@ -29,6 +29,7 @@ Target: **Galaxian/Scramble** (Z80, 3.072 MHz)
 | VRAM | 0x4800 | 32×32 character grid (8×8 tiles) |
 | TRAM | 0x5000 | Column attributes (scroll, colour per column) |
 | ORAM | 0x5040 | 8 sprites (xpos, code, color, ypos) |
+| ORAM+0x20 | 0x5060 | 8 missiles (xpos, ypos) |
 | INPUT0/1/2 | 0x8100+ | Joystick, buttons, coin, start |
 | AY-3-8910 | 0x8200 | Sound (tone, noise, envelope) |
 
@@ -55,39 +56,42 @@ Display: 224×256 pixels, 32×32 tiles, ~32 colours.
 
 ### 2.2 Built-in Commands
 
+**Implemented**
+
 **Display**
 - `CLS` — clear screen
 - `PRINT x, y, "text"` — draw text at (x,y)
-- `POKE x, y, ch` — write char to vram
-- `COLOR col, attr` — set column colour/scroll
-- `SCROLL col, val` — set column scroll
-- `FILL x, y, w, h, ch` — fill block
+- `POKE x, y, ch` — write char to vram (expressions supported)
+- `COLOR col, attr` — set column colour (expressions: F+2, etc.)
+- `SCROLL col, val` — set column scroll (variable or literal)
+- `PUTSHAPE x, y, ofs` — 2×2 tile block (ofs+2,ofs; ofs+3,ofs+1)
 
 **Sprites**
 - `SPRITE n, x, y, code, color` — set sprite n (0–7)
 - `HIDE n` — hide sprite n
-
-**Sound**
-- `SOUND cmd` — send command to AY chip
-- `BEEP freq, dur` — simple tone
+- `MISSILE n, x, y` — hardware missile layer (8 missiles at ORAM+0x20)
 
 **Input**
-- `JOY n` — read joystick n (0=1P, 1=2P)
-- `BUTTON n` — read button
-- `WAIT key` — wait for key/button
+- `JOY(n)` — joystick (0=left, 1=right, 2=up, 3=down)
+- `INPUT(n)` — input_pressed (0–16: P1/P2 controls, coin, start, service)
 
 **Control**
-- `WAIT n` — wait n frames
+- `WAIT n` — wait n frames (n=1 optimizes to single wait_for_frame)
 - `GOTO n` — jump to line
+- `IF expr THEN` / `ELSE` / `ENDIF` — block form
+- `IF var op num THEN GOTO n` — conditional jump
+- `FOR var = start TO end` / `NEXT var`
+
+**Planned**
 - `GOSUB n` / `RETURN` — subroutine
-- `END` — stop
+- `SOUND`, `BEEP` — sound
+- `FILL x, y, w, h, ch` — block fill
 
-### 2.3 Expressions
+### 2.3 Expressions (implemented)
 
-- Arithmetic: `+`, `-`, `*`, `/`, `MOD`
-- Comparisons: `=`, `<>`, `<`, `>`, `<=`, `>=`
-- Logical: `AND`, `OR`, `NOT`
-- Functions: `RND(n)`, `PEEK(x,y)`, `JOY(0)`
+- Arithmetic: `+`, `-`, `*` (var+num, var-num, var*num, num+var*num)
+- Comparisons: `=`, `<>`, `<`, `>`, `<=`, `>=` (in IF conditions)
+- Functions: `JOY(n)`, `INPUT(n)` (in expressions)
 
 ---
 
@@ -99,18 +103,25 @@ galaxian-basic/
 ├── README.md
 ├── Makefile          # Build system (PROGRAM=file.bas)
 ├── gbasic.py         # BASIC → C compiler
+├── renum.py          # Renumber .bas files (updates GOTO targets)
 ├── slice.py          # Slice ROM for MAME scramble
 ├── crt0.asm          # Z80 reset + vblank interrupt at 0x66
 ├── runtime.c         # Hardware engine (no main)
 ├── runtime.h         # Runtime API for compiled programs
+├── example.c         # Reference C implementation (matches example.bas)
 ├── demo.c            # C demo (when PROGRAM=)
 ├── gfxdata.h         # Tile ROM + palette
 ├── examples/
+│   ├── example.bas   # Full demo (chars, sprites, missiles, explosion)
+│   ├── chase.bas
 │   ├── demo.bas
 │   ├── hello.bas
 │   ├── scroll.bas
-│   └── sprite.bas
+│   ├── sprite.bas
+│   ├── input_test.bas
+│   └── if_else_test.bas
 └── build/            # Generated C and ROM output
+    └── program.c     # Generated C from BASIC
 ```
 
 ### 3.1 Skeleton Runtime (implemented)
@@ -132,7 +143,7 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 |----------|---------|-------------|
 | VRAM | 0x4800 | 32×32 character grid |
 | TRAM | 0x5000 | vcolumns (scroll, attrib per column) |
-| ORAM | 0x5040 | 8 hardware sprites |
+| ORAM | 0x5040 | 8 hardware sprites + 8 missiles (0x5060) |
 | IRQ | 0x6801 | enable_irq |
 | Watchdog | 0x7000 | Must tick or hardware resets |
 | Input | 0x8100–0x8102 | input0, input1, input2 |
@@ -144,8 +155,10 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 
 **Runtime API (C):**
 - `putchar(x, y, ch)`, `putstring(x, y, s)` — text (CHAR remap for digits)
+- `putshape(x, y, ofs)` — 2×2 tile block
 - `clrscr()` — clear VRAM + vcolumns
 - `set_sprite(n, x, y, code, color)`, `hide_sprite(n)` — buffered, applied in wait_for_frame
+- `set_missile(n, x, y)` — hardware missile layer (8 missiles at ORAM+0x20)
 - `set_scroll(col, val)`, `set_column_attrib(col, attr)` — per-column scroll/color
 - `wait_for_frame()` — sync to vblank, copy buffers to hardware
 
@@ -164,6 +177,13 @@ No bytecode or interpreter. Direct native Z80 execution.
 
 ## 4. Implementation Phases
 
+### Current Status (Latest)
+
+- **example.bas** — Full demo matching example.c: draw_all_chars (256 tiles), draw_sprites (5 rows), draw_explosion, draw_missiles (8 sprites + 8 missiles), draw_corners, text
+- **MISSILE** — Hardware missile layer (8 missiles at ORAM+0x20)
+- **Compiler optimizations** — WAIT 1 → `wait_for_frame()`; labels only for GOTO/IF targets; COLOR hoisted outside loops (source-level)
+- **renum.py** — Renumber .bas files, update GOTO/IF...GOTO targets
+
 ### Phase 0: Z80 Runtime ✓ Complete
 - [x] crt0.asm — reset vector, vblank interrupt handler
 - [x] runtime.c — text rendering, sprite control, scrolling
@@ -174,17 +194,20 @@ No bytecode or interpreter. Direct native Z80 execution.
 
 ### Phase 1: BASIC → C Compiler ✓ Complete
 - [x] gbasic.py — tokenizer, parser, C code emission
-- [x] Core commands — CLS, PRINT, POKE, COLOR, LET, IF/THEN, WAIT, GOTO
-- [x] Sprites — SPRITE, HIDE (with variable expressions)
+- [x] Core commands — CLS, PRINT, POKE, COLOR, LET, IF/THEN/ELSE/ENDIF, WAIT, GOTO
+- [x] Sprites — SPRITE, HIDE, MISSILE (with variable expressions)
 - [x] Scrolling — SCROLL, FOR/NEXT with variables
+- [x] Display — PUTSHAPE (2×2 tile blocks)
+- [x] Input — JOY(n), INPUT(n)
+- [x] Expressions — var+num, var-num, var*num, num+var*num
 - [x] Pipeline — BASIC → C → SDCC → ROM
+- [x] Compiler optimizations — WAIT 1 → wait_for_frame(), labels only for branch targets
 
 ### Phase 2: More Language Features
 - [ ] GOSUB / RETURN — subroutines
-- [ ] More expressions — *, /, MOD, AND, OR
+- [ ] More expressions — /, MOD, AND, OR
 - [ ] FILL — block fill command
 - [ ] Sound — SOUND, BEEP
-- [ ] Input — JOY, BUTTON
 - [ ] Error handling — compile-time and runtime messages
 
 ### Phase 3: IDE Development
@@ -237,6 +260,15 @@ No bytecode or interpreter. Direct native Z80 execution.
 60 GOTO 50
 ```
 
+### Full Demo (example.bas)
+The `examples/example.bas` program demonstrates all features, matching the reference `example.c`:
+- **draw_all_chars** — 256 tiles in 8 rows with COLOR and SCROLL
+- **draw_sprites** — 5 rows of 2×2 tile blocks via PUTSHAPE
+- **draw_explosion** — 4×4 putshape pattern
+- **draw_missiles** — 8 sprites + 8 hardware missiles (SPRITE, MISSILE)
+- **draw_corners** — animated corner tiles
+- **PRINT** — text display
+
 ---
 
 ## 6. Development Tools
@@ -245,6 +277,9 @@ No bytecode or interpreter. Direct native Z80 execution.
 - **SDCC 3.8.0** — Z80 cross-compiler (compiles generated C to machine code)
 - **MAME** — Arcade emulator for testing
 - **Python 3** — gbasic.py compiler and build scripts
+
+**Available:**
+- **renum.py** — Renumber .bas files; updates GOTO and IF...THEN GOTO targets. Usage: `renum.py file.bas [-o out.bas] [--start 10] [--step 10] [-n]`
 
 **Planned:**
 - **Web IDE** — Browser-based development environment
@@ -261,12 +296,12 @@ No bytecode or interpreter. Direct native Z80 execution.
 
 ### Milestone 2: BASIC Compiler ✓
 - BASIC → C → Z80 → ROM pipeline working
-- Core commands (PRINT, GOTO, SPRITE, SCROLL, LET, IF)
-- Example programs running in MAME
+- Full command set: display (CLS, PRINT, POKE, COLOR, SCROLL, PUTSHAPE), sprites (SPRITE, HIDE, MISSILE), input (JOY, INPUT), control flow (LET, IF/ELSE/ENDIF, FOR/NEXT, GOTO, WAIT)
+- Example programs running in MAME (example.bas matches example.c reference)
+- renum.py for line renumbering
 
 ### Milestone 3: Full Language
-- All built-in commands implemented
-- GOSUB/RETURN, sound, input
+- GOSUB/RETURN, sound, more expressions
 - Error handling and debugging
 
 ### Milestone 4: IDE
