@@ -15,11 +15,15 @@ void runtime_init(void);
 /* Display */
 void clrscr(void);
 void putchar(byte x, byte y, byte ch);
+void putshape(byte x, byte y, byte ofs);  /* 2x2 tile block: [ofs+2,ofs; ofs+3,ofs+1] */
 void putstring(byte x, byte y, const char *s);
 
 /* Sprites */
 void set_sprite(byte n, byte x, byte y, byte code, byte color);
 void hide_sprite(byte n);
+
+/* Missiles (hardware layer - 8 missiles at ORAM+0x20) */
+void set_missile(byte n, byte x, byte y);
 
 /* Scrolling */
 void set_scroll(byte col, byte val);

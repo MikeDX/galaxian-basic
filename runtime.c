@@ -49,7 +49,8 @@ volatile word video_framecount = 0;
 #define watchdog __asm ld a, (#_watchdog_reg) __endasm
 
 /* gfxdata remap:[3,0,1,2,4,5,6,7,8,9,10] - inverse for digits 0-9 */
-static const byte remap_inv[10] = {1, 2, 3, 0, 4, 5, 6, 7, 8, 9};
+/* 012->123: tile N shows digit N, so use identity for digits */
+static const byte remap_inv[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 static byte CHAR(char c) {
   if (c >= '0' && c <= '9') return remap_inv[c - '0'];
   if (c == ' ' || c == '@') return 0x10;
@@ -65,6 +66,14 @@ void memset_safe(void *dest, char ch, word size) {
 /* Pitfall platform.h line 379: vram[29-x][y] = ch */
 void putchar(byte x, byte y, byte ch) {
   if (x < 32 && y < 32) VRAM_PTR[(29 - x) * 32 + y] = ch;
+}
+
+/* 2x2 tile block - matches example.c putshape layout */
+void putshape(byte x, byte y, byte ofs) {
+  putchar(x, y, ofs + 2);
+  putchar(x + 1, y, ofs);
+  putchar(x, y + 1, ofs + 3);
+  putchar(x + 1, y + 1, ofs + 1);
 }
 
 void putstring(byte x, byte y, const char *s) {
@@ -89,6 +98,14 @@ void hide_sprite(byte n) {
     sprites[n].xpos = 0xff;
     sprites[n].ypos = 0xff;
     sprites[n].code = 0x17;
+  }
+}
+
+/* Set missile n (0-7) - hardware reads directly from vmissiles */
+void set_missile(byte n, byte x, byte y) {
+  if (n < 8) {
+    vmissiles[n].xpos = x;
+    vmissiles[n].ypos = y;
   }
 }
 

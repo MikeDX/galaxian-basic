@@ -1,0 +1,106 @@
+10 REM Example demo - converted from example.c
+20 REM Draws all chars, sprites, explosion, text, missiles, corners
+30 CLS
+40 LET F = 0
+50 REM draw_all_chars - 256 tiles in 8 rows (y=2 to 9), x=i&31 y=(i>>5)+2
+60 FOR I = 0 TO 31
+70   POKE I, 2, I
+90 NEXT I
+95 COLOR 2, F+2
+100 FOR I = 0 TO 31
+110   POKE I, 3, I+32
+130 NEXT I
+135 COLOR 3, F+3
+138 FOR I = 0 TO 31
+139   POKE I, 4, I+64
+140 NEXT I
+141 COLOR 4, F+4
+142 FOR I = 0 TO 31
+143   POKE I, 5, I+96
+144 NEXT I
+145 COLOR 5, F+5
+146 FOR I = 0 TO 31
+147   POKE I, 6, I+128
+148 NEXT I
+149 COLOR 6, F+6
+150 FOR I = 0 TO 31
+151   POKE I, 7, I+160
+152 NEXT I
+153 COLOR 7, F+7
+154 FOR I = 0 TO 31
+155   POKE I, 8, I+192
+156 NEXT I
+157 COLOR 8, F+8
+158 FOR I = 0 TO 31
+159   POKE I, 9, I+224
+160 NEXT I
+161 COLOR 9, F+9
+162 REM vcolumns[y].scroll = frame for rows 2-9 (matches improved example.c)
+163 SCROLL 2, F
+164 SCROLL 3, F
+165 SCROLL 4, F
+166 SCROLL 5, F
+167 SCROLL 6, F
+168 SCROLL 7, F
+169 SCROLL 8, F
+170 SCROLL 9, F
+171 REM draw_sprites(0x30, 18)
+172 WAIT 1
+173 COLOR 18, 1
+174 COLOR 19, 1
+175 FOR I = 0 TO 7
+176   PUTSHAPE I*3, 18, 48+I*4
+177 NEXT I
+178 REM draw_sprites(0x50, 21)
+179 COLOR 21, 1
+180 COLOR 22, 1
+181 FOR I = 0 TO 7
+182   PUTSHAPE I*3, 21, 80+I*4
+183 NEXT I
+184 REM draw_sprites(0x70, 24)
+185 COLOR 24, 1
+186 COLOR 25, 1
+187 FOR I = 0 TO 7
+188   PUTSHAPE I*3, 24, 112+I*4
+189 NEXT I
+190 REM draw_sprites(0xa0, 27)
+191 COLOR 27, 1
+192 COLOR 28, 1
+193 FOR I = 0 TO 7
+194   PUTSHAPE I*3, 27, 160+I*4
+195 NEXT I
+196 REM draw_sprites(0x0, 29)
+197 COLOR 29, 1
+198 COLOR 30, 1
+199 FOR I = 0 TO 7
+200   PUTSHAPE I*3, 29, I*4
+201 NEXT I
+590 REM draw_explosion(0xc0, 12) - putshape pattern
+600 COLOR 12, 2
+601 COLOR 13, 2
+602 COLOR 14, 2
+603 COLOR 15, 2
+610 FOR X = 0 TO 3
+611   LET O = 192+X*16
+612   PUTSHAPE X*5, 12, O+8
+613   PUTSHAPE X*5, 14, O+12
+614   PUTSHAPE X*5+2, 12, O
+615   PUTSHAPE X*5+2, 14, O+4
+616 NEXT X
+760 PRINT 7, 0, "HELLO@WORLD@123"
+770 REM draw_corners - vram[2][0],[2][31],[29][0],[29][31] -> putchar(27,0),(27,31),(0,0),(0,31)
+780 LET C0 = C0+1
+790 POKE 27, 0, C0
+800 POKE 27, 31, C0
+810 POKE 0, 0, C0
+820 POKE 0, 31, C0
+830 REM vcolumns[1].attrib = frame
+840 COLOR 1, F
+850 REM draw_missiles - sprites + missiles (matches example.c)
+860 FOR I = 0 TO 7
+870   SPRITE I, I*32+F, I*24+F, 24, I+1
+875   MISSILE I, I*16+F, I+24
+880 NEXT I
+900 LET F = F+1
+950 WAIT 1
+960 GOTO 50

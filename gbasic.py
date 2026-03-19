@@ -46,11 +46,17 @@ def tokenize_line(line: str) -> list:
 
 
 def parse_expr(tokens: list) -> tuple:
-    """Parse simple expr: num, var, JOY(n), var+num, var-num, var*num, var+var, var-var. Returns (type, args)."""
+    """Parse simple expr: num, var, JOY(n), var+num, var-num, var*num, var+var, var-var, num+var*num, num+var. Returns (type, args)."""
     if not tokens:
         return None
     t = tokens[0]
     if t[0] == 'NUM':
+        # num+var*num (e.g. 48+I*4, 192+X*16)
+        if len(tokens) >= 5 and tokens[1][0] == 'PUNCT' and tokens[1][1] == '+' and tokens[2][0] == 'ID' and tokens[3][0] == 'PUNCT' and tokens[3][1] == '*' and tokens[4][0] == 'NUM':
+            return ('add', t[1], ('mul', tokens[2][1].lower(), tokens[4][1]))
+        # num+var (e.g. 48+I)
+        if len(tokens) >= 3 and tokens[1][0] == 'PUNCT' and tokens[1][1] == '+' and tokens[2][0] == 'ID':
+            return ('add', t[1], tokens[2][1].lower())
         return ('num', t[1])
     if t[0] == 'ID' and t[1] == 'JOY':
         if len(tokens) >= 4 and tokens[1][1] == '(' and tokens[2][0] == 'NUM' and tokens[3][1] == ')':
@@ -75,6 +81,12 @@ def parse_expr(tokens: list) -> tuple:
             if op == '-' and t2[0] == 'NUM':
                 return ('sub', var, t2[1])
             if op == '*' and t2[0] == 'NUM':
+                # var*num+var or var*num+num
+                if len(tokens) >= 5 and tokens[3][0] == 'PUNCT' and tokens[3][1] == '+':
+                    if tokens[4][0] == 'NUM':
+                        return ('add', ('mul', var, t2[1]), tokens[4][1])
+                    if tokens[4][0] == 'ID':
+                        return ('add', ('mul', var, t2[1]), tokens[4][1].lower())
                 return ('mul', var, t2[1])
             if op == '+' and t2[0] == 'ID':
                 if t2[1] == 'JOY' and len(tokens) >= 6 and tokens[3][1] == '(' and tokens[4][0] == 'NUM' and tokens[5][1] == ')':
@@ -204,16 +216,21 @@ def parse_statement(tokens: list) -> tuple:
                 n = rest[0][1] if rest[0][0] == 'NUM' else rest[0][1].lower()
                 return ('HIDE', [n])
         if kw == 'COLOR':
-            if len(rest) >= 3 and rest[1][1] == ',':
-                col, val = rest[0], rest[2]
-                if col[0] == 'NUM' and val[0] == 'NUM':
-                    return ('COLOR', [col[1], val[1]])
-                if col[0] == 'ID' and val[0] == 'NUM':
-                    return ('COLOR', [col[1].lower(), val[1]])
-                if col[0] == 'NUM' and val[0] == 'ID':
-                    return ('COLOR', [col[1], val[1].lower()])
-                if col[0] == 'ID' and val[0] == 'ID':
-                    return ('COLOR', [col[1].lower(), val[1].lower()])
+            # COLOR col, val - args can be expr (num, var, var+num, etc.)
+            parts = []
+            current = []
+            for t in rest:
+                if t[0] == 'PUNCT' and t[1] == ',':
+                    parts.append(current)
+                    current = []
+                else:
+                    current.append(t)
+            if current:
+                parts.append(current)
+            if len(parts) == 2:
+                colv, valv = parse_expr(parts[0]), parse_expr(parts[1])
+                if colv and valv:
+                    return ('COLOR', [colv, valv])
         if kw == 'POKE':
             # POKE x, y, ch - args can be expr (num, var, INPUT(n), etc.)
             parts = []
@@ -230,6 +247,22 @@ def parse_statement(tokens: list) -> tuple:
                 xv, yv, chv = parse_expr(parts[0]), parse_expr(parts[1]), parse_expr(parts[2])
                 if xv and yv and chv:
                     return ('POKE', [xv, yv, chv])
+        if kw == 'PUTSHAPE':
+            # PUTSHAPE x, y, ofs - 2x2 tile block, args are expr
+            parts = []
+            current = []
+            for t in rest:
+                if t[0] == 'PUNCT' and t[1] == ',':
+                    parts.append(current)
+                    current = []
+                else:
+                    current.append(t)
+            if current:
+                parts.append(current)
+            if len(parts) == 3:
+                xv, yv, ofsv = parse_expr(parts[0]), parse_expr(parts[1]), parse_expr(parts[2])
+                if xv and yv and ofsv:
+                    return ('PUTSHAPE', [xv, yv, ofsv])
         if kw == 'SPRITE':
             # SPRITE n, x, y, code, color - parse 5 comma-separated args
             parts = []
@@ -247,6 +280,22 @@ def parse_statement(tokens: list) -> tuple:
                     parts.append(expr if expr else ('num', 0))
             if len(parts) == 5:
                 return ('SPRITE', parts)
+        if kw == 'MISSILE':
+            # MISSILE n, x, y - hardware missile layer
+            parts = []
+            current = []
+            for t in rest:
+                if t[0] == 'PUNCT' and t[1] == ',':
+                    parts.append(current)
+                    current = []
+                else:
+                    current.append(t)
+            if current:
+                parts.append(current)
+            if len(parts) == 3:
+                nv, xv, yv = parse_expr(parts[0]), parse_expr(parts[1]), parse_expr(parts[2])
+                if nv and xv and yv:
+                    return ('MISSILE', [nv, xv, yv])
         if kw == 'SCROLL':
             # SCROLL col, val (col and val can be NUM or ID/variable)
             if len(rest) >= 3 and rest[1][1] == ',':
@@ -313,31 +362,70 @@ def compile_basic_to_c(source: str) -> str:
             if args[0] == 'var':
                 all_vars.add(args[1])
         elif cmd == 'SPRITE':
+            def _vars_from_expr(e):
+                if isinstance(e, tuple):
+                    if e[0] == 'var':
+                        all_vars.add(e[1])
+                    elif e[0] == 'mul' and isinstance(e[1], str):
+                        all_vars.add(e[1])
+                    elif e[0] in ('add', 'sub', 'addv', 'subv'):
+                        if isinstance(e[1], str): all_vars.add(e[1])
+                        else: _vars_from_expr(e[1])
+                        if len(e) >= 3:
+                            if isinstance(e[2], str): all_vars.add(e[2])
+                            else: _vars_from_expr(e[2])
             for a in args:
-                if isinstance(a, tuple) and a[0] == 'var':
-                    all_vars.add(a[1])
-                elif isinstance(a, tuple) and len(a) >= 2:
-                    if isinstance(a[1], str):
-                        all_vars.add(a[1])
-                    if len(a) >= 3 and isinstance(a[2], str):
-                        all_vars.add(a[2])
+                if isinstance(a, tuple):
+                    _vars_from_expr(a)
+        elif cmd == 'MISSILE':
+            def _missile_vars(e):
+                if isinstance(e, tuple):
+                    if e[0] == 'var': all_vars.add(e[1])
+                    elif e[0] == 'mul' and isinstance(e[1], str): all_vars.add(e[1])
+                    elif e[0] in ('add', 'sub', 'addv', 'subv'):
+                        if isinstance(e[1], str): all_vars.add(e[1])
+                        elif isinstance(e[1], tuple): _missile_vars(e[1])
+                        if len(e) >= 3 and isinstance(e[2], str): all_vars.add(e[2])
+            for a in args:
+                if isinstance(a, tuple):
+                    _missile_vars(a)
         elif cmd == 'SCROLL':
             for a in args[:2]:
                 if isinstance(a, str) and len(a) == 1 and a.isalpha():
                     all_vars.add(a)
         elif cmd == 'COLOR':
+            def _color_vars(e):
+                if isinstance(e, tuple):
+                    if e[0] == 'var': all_vars.add(e[1])
+                    elif e[0] == 'mul' and isinstance(e[1], str): all_vars.add(e[1])
+                    elif e[0] in ('add', 'sub', 'addv', 'subv'):
+                        if isinstance(e[1], str): all_vars.add(e[1])
+                        elif isinstance(e[1], tuple): _color_vars(e[1])
+                        if len(e) >= 3 and isinstance(e[2], str): all_vars.add(e[2])
             for a in args:
-                if isinstance(a, str) and len(a) == 1 and a.isalpha():
-                    all_vars.add(a)
+                if isinstance(a, tuple): _color_vars(a)
         elif cmd == 'POKE':
+            def _poke_vars(e):
+                if isinstance(e, tuple):
+                    if e[0] == 'var': all_vars.add(e[1])
+                    elif e[0] == 'mul' and isinstance(e[1], str): all_vars.add(e[1])
+                    elif e[0] in ('add', 'sub', 'addv', 'subv'):
+                        if isinstance(e[1], str): all_vars.add(e[1])
+                        elif isinstance(e[1], tuple): _poke_vars(e[1])
+                        if len(e) >= 3 and isinstance(e[2], str): all_vars.add(e[2])
             for a in args:
-                if isinstance(a, tuple) and a[0] == 'var':
-                    all_vars.add(a[1])
-                elif isinstance(a, tuple) and a[0] in ('add', 'sub', 'addv', 'subv'):
-                    if isinstance(a[1], str):
-                        all_vars.add(a[1])
-                    if len(a) >= 3 and isinstance(a[2], str):
-                        all_vars.add(a[2])
+                if isinstance(a, tuple): _poke_vars(a)
+        elif cmd == 'PUTSHAPE':
+            def _putshape_vars(e):
+                if isinstance(e, tuple):
+                    if e[0] == 'var': all_vars.add(e[1])
+                    elif e[0] == 'mul' and isinstance(e[1], str): all_vars.add(e[1])
+                    elif e[0] in ('add', 'sub', 'addv', 'subv'):
+                        if isinstance(e[1], str): all_vars.add(e[1])
+                        elif isinstance(e[1], tuple): _putshape_vars(e[1])
+                        if len(e) >= 3 and isinstance(e[2], str): all_vars.add(e[2])
+            for a in args:
+                if isinstance(a, tuple): _putshape_vars(a)
 
     out.append('void main(void) {')
     for v in sorted(all_vars):
@@ -346,13 +434,23 @@ def compile_basic_to_c(source: str) -> str:
     out.append('  runtime_init();')
     out.append('')
 
-    # Emit labels for GOTO targets, with FOR/NEXT nesting
+    # Collect branch targets (GOTO, IF...GOTO, IF_INPUT...GOTO)
+    branch_targets = set()
+    for ln, (cmd, args) in lines:
+        if cmd == 'GOTO':
+            branch_targets.add(args[0])
+        elif cmd == 'IF':
+            branch_targets.add(args[3])
+        elif cmd == 'IF_INPUT':
+            branch_targets.add(args[3])
+
     line_labels = {ln: f'line_{ln}' for ln, _ in lines}
     indent = 2
     for ln, (cmd, args) in lines:
         pad = '  ' * indent
         pad_inner = '  ' * (indent + 1)
-        if cmd != 'NEXT':
+        needs_label = ln in branch_targets
+        if cmd != 'NEXT' and needs_label:
             label_pad = '  ' * (indent - 1) if cmd in ('ELSE', 'ENDIF') else pad
             out.append(f'{label_pad}{line_labels[ln]}:')
         if cmd == 'REM':
@@ -368,7 +466,10 @@ def compile_basic_to_c(source: str) -> str:
                 out.append(f'{pad_inner}/* PRINT {x},{y} */')
         elif cmd == 'WAIT':
             n = args[0]
-            out.append(f'{pad_inner}{{ byte _i; for (_i = 0; _i < {n}; _i++) wait_for_frame(); }}')
+            if n == 1:
+                out.append(f'{pad_inner}wait_for_frame();')
+            else:
+                out.append(f'{pad_inner}{{ byte _i; for (_i = 0; _i < {n}; _i++) wait_for_frame(); }}')
         elif cmd == 'GOTO':
             target = args[0]
             out.append(f'{pad_inner}goto line_{target};')
@@ -402,16 +503,21 @@ def compile_basic_to_c(source: str) -> str:
             pad_outer = '  ' * indent
             out.append(f'{pad_outer}}}')
         elif cmd == 'COLOR':
-            col, val = args
-            out.append(f'{pad_inner}set_column_attrib({col}, {val});')
+            colv, valv = args
+            out.append(f'{pad_inner}set_column_attrib({expr_to_c(colv)}, {expr_to_c(valv)});')
         elif cmd == 'POKE':
             xv, yv, chv = args
             out.append(f'{pad_inner}putchar({expr_to_c(xv)}, {expr_to_c(yv)}, {expr_to_c(chv)});')
+        elif cmd == 'PUTSHAPE':
+            xv, yv, ofsv = args
+            out.append(f'{pad_inner}putshape({expr_to_c(xv)}, {expr_to_c(yv)}, {expr_to_c(ofsv)});')
         elif cmd == 'HIDE':
             n = args[0]
             out.append(f'{pad_inner}hide_sprite({n});')
         elif cmd == 'SPRITE':
             out.append(f'{pad_inner}set_sprite({expr_to_c(args[0])}, {expr_to_c(args[1])}, {expr_to_c(args[2])}, {expr_to_c(args[3])}, {expr_to_c(args[4])});')
+        elif cmd == 'MISSILE':
+            out.append(f'{pad_inner}set_missile({expr_to_c(args[0])}, {expr_to_c(args[1])}, {expr_to_c(args[2])});')
         elif cmd == 'SCROLL':
             col, val = args[0], args[1]
             out.append(f'{pad_inner}set_scroll({col}, {val});')
@@ -422,7 +528,10 @@ def compile_basic_to_c(source: str) -> str:
         elif cmd == 'NEXT':
             indent -= 1
             pad_next = '  ' * indent
-            out.append(f'{pad_next}{line_labels[ln]}: ;')
+            if needs_label:
+                out.append(f'{pad_next}{line_labels[ln]}: ;')
+            else:
+                out.append(f'{pad_next};')
             out.append(f'{pad_next}}}')
         out.append('')
 
