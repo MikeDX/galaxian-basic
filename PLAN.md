@@ -1,6 +1,6 @@
 # Galaxian BASIC — Technical Plan
 
-**Goal:** Create a BASIC programming language that compiles to native Z80 code for Galaxian/Scramble arcade hardware.
+**Goal:** Create a BASIC programming language that compiles to native Z80 code for **Galaxian/Scramble** and **Namco Pac-Man** arcade hardware.
 
 This document outlines the technical design, architecture, and implementation roadmap. If you're looking for a quick overview, see [README.md](README.md).
 
@@ -14,12 +14,15 @@ Galaxian BASIC brings modern development tools to classic arcade hardware. Write
 - BASIC syntax optimized for arcade game development
 - Direct hardware access (sprites, scrolling, sound, input)
 - **BASIC → C → Z80 → ROM** — no bytecode interpreter, native execution
-- Modern IDE with graphics editor and debugger (planned)
+- **Dual target:** Scramble (`make`) and Pac-Man (`TARGET=pacman`) — see [README_PACMAN.md](README_PACMAN.md)
+- Web IDE with tile/palette editors (`make ide`); built-in emulator/debugger still planned
 - Runs on actual 1980s arcade hardware
 
 ---
 
 ## 1. Hardware Context
+
+### 1.1 Galaxian / Scramble (primary)
 
 Target: **Galaxian/Scramble** (Z80, 3.072 MHz)
 
@@ -34,6 +37,10 @@ Target: **Galaxian/Scramble** (Z80, 3.072 MHz)
 | AY-3-8910 | 0x8200 | Sound (tone, noise, envelope) |
 
 Display: 224×256 pixels, 32×32 tiles, ~32 colours.
+
+### 1.2 Namco Pac-Man (`TARGET=pacman`)
+
+Second target: same compiler and generated C API (`runtime.h`), different implementation (`lib/runtime_pacman.c`, `lib/crt0_pacman.asm`). CPU ROM only is rebuilt; MAME supplies stock tile/sprite ROMs (`pacman.5e`, `pacman.5f`, PROMs). Work RAM at `0x4C00`–`0x4FFF`; VRAM `0x4000`–`0x43FF`; color RAM `0x4400`–`0x47FF`; hardware sprites at `0x4FF0` / `0x5060`. The runtime maps BASIC’s logical 32×32 grid onto Pac-Man’s 36×28 scrambled tilemap (see MAME `pacman_scan_rows`). **Example:** `examples/chase.bas` runs on both Scramble and Pac-Man (screenshot: `screenshots/pacchase.gif`).
 
 ---
 
@@ -51,7 +58,7 @@ Display: 224×256 pixels, 32×32 tiles, ~32 colours.
 
 - Line numbers (1–9999)
 - Variables: single letters (A–Z) or A0–A9 style
-- Numeric literals: decimal (0–255 for byte)
+- Numeric literals: decimal; hex `0xNN` / `0XNN`; BASIC-style `NNH` / `NNh` (hex digits, must start with a digit, e.g. `0FFh`)
 - Strings: "quoted"
 
 ### 2.2 Built-in Commands
@@ -105,17 +112,21 @@ galaxian-basic/
 ├── README.md
 ├── Makefile          # Build system (PROGRAM=file.bas)
 ├── lib/              # Runtime library
-│   ├── runtime.c     # Hardware engine (no main)
+│   ├── runtime.c     # Galaxian/Scramble hardware (no main)
+│   ├── runtime_pacman.c # Pac-Man memory map + tilemap
 │   ├── runtime.h     # Runtime API for compiled programs
-│   ├── crt0.asm      # Z80 reset + vblank interrupt at 0x66
-│   └── gfxdata.h     # Tile ROM + palette
+│   ├── crt0.asm      # Z80 reset + vblank interrupt at 0x66 (Scramble)
+│   ├── crt0_pacman.asm # Pac-Man: IM1, IRQ at 0x38
+│   └── gfxdata.h     # Tile ROM + palette (Scramble)
 ├── src/              # Application source
 │   ├── demo.c        # C demo (when PROGRAM=)
 │   └── example.c     # Reference C implementation (matches example.bas)
 ├── scripts/          # Python tools
 │   ├── gbasic.py     # BASIC → C compiler
 │   ├── renum.py      # Renumber .bas files (updates GOTO targets)
-│   └── slice.py      # Slice ROM for MAME scramble
+│   ├── slice.py      # Slice ROM for MAME scramble
+│   ├── slice_pacman.py
+│   └── hex2rom_pacman.py
 ├── examples/
 │   ├── example.bas   # Full demo (chars, sprites, missiles, explosion)
 │   ├── chase.bas
@@ -125,6 +136,8 @@ galaxian-basic/
 │   ├── sprite.bas
 │   ├── input_test.bas
 │   └── if_else_test.bas
+├── pacman/           # Pac-Man ROM output (pacman.6e–6j) + copied gfx when available
+├── screenshots/      # demo.gif, chase.gif, pacchase.gif, …
 └── build/            # Generated C and ROM output
     └── program.c     # Generated C from BASIC
 ```
@@ -167,6 +180,8 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 - `set_scroll(col, val)`, `set_column_attrib(col, attr)` — per-column scroll/color
 - `wait_for_frame()` — sync to vblank, copy buffers to hardware
 
+**Pac-Man runtime (`TARGET=pacman`):** Same `runtime.h` API implemented in `runtime_pacman.c` + `crt0_pacman.asm` (IM 1, IRQ at `0x38`, watchdog `0x50C0`). Linked as `_DATA` at `0x4C00`. Per-column scroll is not hardware-backed on stock Pac-Man — `set_scroll` updates a buffer only. Details: [README_PACMAN.md](README_PACMAN.md).
+
 ### 3.2 Compilation Pipeline
 
 **BASIC → C → Z80 → ROM**
@@ -174,7 +189,8 @@ make clean    # Remove build artifacts (preserves crt0.asm)
 1. **gbasic.py** — Compiles BASIC source to C that calls the runtime API
 2. **SDCC** — Compiles generated C to Z80 machine code
 3. **Linker** — Links with runtime library (crt0 + runtime.c)
-4. **hex2rom + slice.py** — Produces ROM image for MAME
+4. **hex2rom + slice.py** — Produces ROM image for MAME (Scramble)
+5. **hex2rom_pacman.py + slice_pacman.py** — 16 KiB CPU image → `pacman.6e`–`pacman.6j` for MAME `pacman`
 
 No bytecode or interpreter. Direct native Z80 execution.
 
@@ -186,8 +202,11 @@ No bytecode or interpreter. Direct native Z80 execution.
 
 - **example.bas** — Full demo matching example.c: draw_all_chars (256 tiles), draw_sprites (5 rows), draw_explosion, draw_missiles (8 sprites + 8 missiles), draw_corners, text
 - **MISSILE** — Hardware missile layer (8 missiles at ORAM+0x20)
+- **Pac-Man target** — `TARGET=pacman`, `runtime_pacman.c`, `crt0_pacman.asm`, stock gfx ROMs; `chase.bas` demo recorded as `screenshots/pacchase.gif`
+- **Hex literals** — `gbasic.py`: `0xNN` and `NNH` / `NNh`
 - **Compiler optimizations** — WAIT 1 → `wait_for_frame()`; labels only for GOTO/IF targets; COLOR hoisted outside loops (source-level)
 - **renum.py** — Renumber .bas files, update GOTO/IF...GOTO targets
+- **Web IDE** — CodeMirror BASIC mode, help, tile editor (64×16×16), palette editor (see repo `ide/`)
 
 ### Phase 0: Z80 Runtime ✓ Complete
 - [x] crt0.asm — reset vector, vblank interrupt handler
@@ -216,11 +235,11 @@ No bytecode or interpreter. Direct native Z80 execution.
 - [ ] Error handling — compile-time and runtime messages
 
 ### Phase 3: IDE Development
-- [ ] Code editor — syntax highlighting, line numbers
-- [ ] Graphics editor — tile/sprite editing
+- [x] Code editor — syntax highlighting (BASIC), line numbers (`make ide`)
+- [x] Graphics / palette — tile + palette editors, `.gfx.json` load/save
 - [ ] Emulator integration — built-in Z80 emulator
 - [ ] Debugger — breakpoints, step, inspect
-- [ ] Project management — save/load, export ROM
+- [ ] Project management — save/load, export ROM from IDE
 
 ### Phase 4: Advanced (optional)
 - [ ] Direct BASIC → Z80 (skip C) — for size/speed optimization
@@ -265,6 +284,10 @@ No bytecode or interpreter. Direct native Z80 execution.
 60 GOTO 50
 ```
 
+### Chase on Pac-Man (`examples/chase.bas`)
+
+Same source as the Scramble chase demo; on Pac-Man, `SPRITE` uses stock sprite codes and colors. Build: `make TARGET=pacman PROGRAM=examples/chase.bas run-pacman`. Screenshot: `screenshots/pacchase.gif`.
+
 ### Full Demo (example.bas)
 The `examples/example.bas` program demonstrates all features, matching the reference `example.c`:
 - **draw_all_chars** — 256 tiles in 8 rows with COLOR and SCROLL
@@ -285,11 +308,11 @@ The `examples/example.bas` program demonstrates all features, matching the refer
 
 **Available:**
 - **scripts/renum.py** — Renumber .bas files; updates GOTO and IF...THEN GOTO targets. Usage: `python scripts/renum.py file.bas [-o out.bas] [--start 10] [--step 10] [-n]`
+- **Web IDE** — `make ide` → http://localhost:8080 — BASIC editor, help, graphics, palette ([README_GRAPHICS.md](README_GRAPHICS.md))
 
 **Planned:**
-- **Web IDE** — Browser-based development environment
 - **Desktop IDE** — Standalone application (Electron or native)
-- **Built-in emulator** — Z80 emulator with debugging support
+- **Built-in emulator** — Z80 emulator with debugging support in the browser
 
 ---
 
@@ -301,19 +324,23 @@ The `examples/example.bas` program demonstrates all features, matching the refer
 
 ### Milestone 2: BASIC Compiler ✓
 - BASIC → C → Z80 → ROM pipeline working
-- Full command set: display (CLS, PRINT, POKE, COLOR, SCROLL, PUTSHAPE), sprites (SPRITE, HIDE, MISSILE), input (JOY, INPUT), control flow (LET, IF/ELSE/ENDIF, FOR/NEXT, GOTO, WAIT)
+- Full command set: display (CLS, PRINT, POKE, COLOR, SCROLL, PUTSHAPE), sprites (SPRITE, HIDE, MISSILE), input (JOY, INPUT), control flow (LET, IF/ELSE/ENDIF, FOR/NEXT, GOTO, GOSUB/RETURN, WAIT)
 - Example programs running in MAME (example.bas matches example.c reference)
 - renum.py for line renumbering
+- Hex literals in `gbasic.py` (`0xNN`, `NNH`)
+
+### Milestone 2b: Pac-Man target ✓
+- `TARGET=pacman`, `runtime_pacman.c` / `crt0_pacman.asm`, ROM slicing for MAME
+- `chase.bas` on Pac-Man (`screenshots/pacchase.gif`); documented in [README_PACMAN.md](README_PACMAN.md)
 
 ### Milestone 3: Full Language
-- GOSUB/RETURN, sound, more expressions
+- GOSUB/RETURN ✓; sound, more expressions (ongoing)
 - Error handling and debugging
 
-### Milestone 4: IDE
-- Visual editor with syntax highlighting
-- Graphics/sprite editor
+### Milestone 4: IDE (in progress)
+- Web IDE: syntax highlighting, tile + palette editors ✓ (`make ide`)
 - Built-in emulator and debugger
-- Export to ROM
+- Export to ROM from IDE
 
 ### Milestone 5: Advanced
 - Direct BASIC → Z80 (optional optimization)

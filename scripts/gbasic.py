@@ -9,8 +9,19 @@ import sys
 from pathlib import Path
 
 
+def _is_hex_digit(c: str) -> bool:
+    return len(c) == 1 and (c.isdigit() or c in "AaBbCcDdEeFf")
+
+
 def tokenize_line(line: str) -> list:
-    """Split a BASIC line into tokens, preserving strings."""
+    """Split a BASIC line into tokens, preserving strings.
+
+    Integer literals:
+      - Decimal: digits 0-9 only (e.g. 10, 255).
+      - C-style hex: 0x or 0X followed by hex digits (e.g. 0xFF, 0x10).
+      - BASIC-style hex: hex digits 0-9A-F then h or H (e.g. 0FFh, 10FFH).
+        Must start with a digit so keywords/ids like FOR are unchanged.
+    """
     tokens = []
     i = 0
     while i < len(line):
@@ -24,12 +35,31 @@ def tokenize_line(line: str) -> list:
             tokens.append(('STR', line[i+1:end]))
             i = end + 1
             continue
-        # Number
+        # C-style hex 0xNN (before plain "0" so 0xFF is not 0 + id)
+        if line[i] == "0" and i + 1 < len(line) and line[i + 1] in "xX":
+            i += 2
+            start = i
+            while i < len(line) and _is_hex_digit(line[i]):
+                i += 1
+            if start == i:
+                raise ValueError("invalid hex literal: 0x must be followed by at least one hex digit")
+            tokens.append(("NUM", int(line[start:i], 16)))
+            continue
+        # Decimal or BASIC-style NNH / NNh
         if line[i].isdigit():
             start = i
+            while i < len(line) and _is_hex_digit(line[i]):
+                i += 1
+            if i < len(line) and line[i] in "Hh":
+                if i == start:
+                    raise ValueError("invalid hex literal: empty digit run before H")
+                tokens.append(("NUM", int(line[start:i], 16)))
+                i += 1
+                continue
+            i = start
             while i < len(line) and line[i].isdigit():
                 i += 1
-            tokens.append(('NUM', int(line[start:i])))
+            tokens.append(("NUM", int(line[start:i])))
             continue
         # Identifier or keyword
         if line[i].isalpha():

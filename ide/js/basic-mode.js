@@ -25,8 +25,17 @@
         state.tokenize = tokenString;
         return state.tokenize(stream, state);
       }
+      if (ch == "0" && stream.peek() && /[xX]/.test(stream.peek())) {
+        stream.next();
+        stream.eatWhile(/[0-9a-fA-F]/);
+        return "number";
+      }
       if (/\d/.test(ch)) {
         stream.eatWhile(/\d/);
+        if (/[0-9a-fA-F]/.test(stream.peek())) {
+          stream.eatWhile(/[0-9a-fA-F]/);
+          if (/[hH]/.test(stream.peek())) stream.next();
+        }
         return "number";
       }
       if (/[a-zA-Z_]/.test(ch)) {

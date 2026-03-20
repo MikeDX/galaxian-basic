@@ -2,20 +2,21 @@
 
 **Write games for classic arcade hardware using BASIC!**
 
-Galaxian BASIC is a retro programming language designed for the iconic Galaxian and Scramble arcade machines. Write simple BASIC programs that compile to C, then to Z80 machine code, and run on real arcade hardware or MAME.
+Galaxian BASIC is a retro programming language designed for **Galaxian / Scramble** and **Namco Pac-Man** arcade hardware. Write simple BASIC programs that compile to C, then to Z80 machine code, and run on real arcade hardware or MAME.
 
 ## Why Galaxian BASIC?
 
 - **Authentic retro experience** — Your programs run on actual 1980s arcade hardware (or MAME)
 - **Simple BASIC syntax** — Easy to learn, with built-in commands for sprites, scrolling, sound, and input
 - **No bytecode interpreter** — Compiles BASIC → C → Z80 for native execution
-- **Modern tooling** — Planned IDE with graphics editor, emulator, and debugger built-in
+- **Modern tooling** — Web IDE (`make ide`) with graphics and palette editors; emulator/debugger still planned
 
 ## What's Working Now
 
 The Z80 runtime is complete and running in MAME! The **BASIC → C → Z80 → ROM** pipeline works:
 
 - **gbasic.py** — Compiles BASIC to C with full command set:
+  - Integer literals: decimal; C-style hex `0xNN`; BASIC-style hex `NNH` / `NNh` (digits `0-9A-F`, must start with a digit, e.g. `0FFh`, `10FFH`)
   - Display: CLS, PRINT, POKE, COLOR, SCROLL, PUTSHAPE (2×2 tile blocks)
   - Sprites: SPRITE, HIDE, MISSILE (hardware missile layer)
   - Control: LET, IF/THEN/ELSE/ENDIF, FOR/NEXT, GOTO, WAIT
@@ -24,10 +25,11 @@ The Z80 runtime is complete and running in MAME! The **BASIC → C → Z80 → R
 - **Runtime engine** — Text, sprites, missiles, scrolling, watchdog
 - **Pipeline** — `make PROGRAM=examples/hello.bas` produces a runnable ROM (no bytecode interpreter)
 - **renum.py** — Renumber .bas files and update GOTO targets
+- **Namco Pac-Man** — Same BASIC → C → Z80 pipeline with `TARGET=pacman`; CPU ROM only, stock tile/sprite ROMs. See [README_PACMAN.md](README_PACMAN.md).
 
-![Demo running in MAME](screenshots/demo.gif)
+![Demo running in MAME (Scramble)](screenshots/demo.gif)
 
-**Next up:** Sound, debugger, AI helper.
+**Next up:** Sound on hardware, richer debugger, AI helper.
 
 **Web IDE:** Code editor, help reference, graphics editor, palette editor. Run `make ide` and open http://localhost:8080
 
@@ -159,6 +161,14 @@ Here's what Galaxian BASIC code looks like:
 ```
 ![Chase](screenshots/chase.gif)
 
+**Chase on Pac-Man** — `examples/chase.bas` builds for both targets. On Pac-Man the same logic drives stock maze sprites (player + ghost). Requires Pac-Man gfx ROMs in `pacman/` or your MAME rompath (see [README_PACMAN.md](README_PACMAN.md)).
+
+```bash
+make TARGET=pacman PROGRAM=examples/chase.bas run-pacman
+```
+
+![Chase on Pac-Man hardware](screenshots/pacchase.gif)
+
 See the `examples/` folder for more sample programs!
 
 ## Project Structure
@@ -169,9 +179,11 @@ galaxian-basic/
 ├── PLAN.md         # Technical design document
 ├── Makefile        # Build system (supports PROGRAM=file.bas)
 ├── lib/            # Runtime library
-│   ├── runtime.c   # Hardware engine (no main)
+│   ├── runtime.c   # Galaxian/Scramble hardware engine (no main)
+│   ├── runtime_pacman.c  # Pac-Man (Namco) memory map + tilemap
 │   ├── runtime.h   # Runtime API for compiled programs
-│   ├── crt0.asm         # Z80 startup code
+│   ├── crt0.asm         # Z80 startup (Scramble)
+│   ├── crt0_pacman.asm  # Z80 startup (Pac-Man, IM1 vblank)
 │   └── default.gfx.json # Default graphics (tiles + palette)
 ├── src/            # Application source
 │   ├── demo.c      # Default demo (when no PROGRAM=)
@@ -179,7 +191,9 @@ galaxian-basic/
 ├── scripts/        # Python tools
 │   ├── gbasic.py   # BASIC → C compiler
 │   ├── renum.py    # Renumber .bas files (updates GOTO targets)
-│   └── slice.py    # ROM splitter for MAME
+│   ├── slice.py    # ROM splitter for MAME (Scramble)
+│   ├── slice_pacman.py
+│   └── hex2rom_pacman.py
 ├── examples/       # Sample BASIC programs
 │   ├── example.bas # Full demo (chars, sprites, missiles, explosion)
 │   ├── chase.bas
@@ -189,6 +203,8 @@ galaxian-basic/
 │   ├── sprite.bas
 │   ├── input_test.bas
 │   └── if_else_test.bas
+├── pacman/         # Pac-Man ROM slices (pacman.6e–6j) + copied gfx when available
+├── screenshots/    # demo.gif, chase.gif, pacchase.gif, …
 └── build/          # Generated C and ROM output
     └── program.c   # Generated C from BASIC
 ```
@@ -203,6 +219,10 @@ galaxian-basic/
 | `make info` | Show ROM details and symbols |
 | `make help` | Display help |
 
+## Pac-Man hardware
+
+The same BASIC → C → Z80 pipeline targets **Namco Pac-Man** (`mame pacman`) with `TARGET=pacman`. Only the **CPU ROMs** are rebuilt; stock `pacman.5e` / `pacman.5f` and PROMs supply tiles, sprites, and color. The runtime maps the 36×28 tile display and rotated controls to the same BASIC grid as the Scramble build. See **[README_PACMAN.md](README_PACMAN.md)** for ROM layout, VRAM tests, and build steps.
+
 ## The Hardware
 
 Galaxian BASIC targets the original arcade hardware:
@@ -216,15 +236,14 @@ Galaxian BASIC targets the original arcade hardware:
 
 ## Roadmap
 
-**Current Status:** BASIC → C → Z80 → ROM pipeline complete. Full command set: display, sprites, missiles, scrolling, input (JOY, INPUT), control flow. Compiler optimizations (WAIT 1, labels, COLOR hoisting). `renum.py` for line renumbering.
+**Current status:** BASIC → C → Z80 → ROM for **Scramble** and **Pac-Man**. Full command set on Galaxian runtime: display, sprites, missiles, scrolling, input (JOY, INPUT), GOSUB/RETURN, block `IF`/`ELSE`/`ENDIF`, hex literals (`0xNN`, `NNH`). Compiler optimizations (WAIT 1, labels, COLOR hoisting). `renum.py` for line renumbering. Web IDE with BASIC editor, help, tile/palette tools ([README_GRAPHICS.md](README_GRAPHICS.md)).
 
-**Coming Soon:**
-- GOSUB/RETURN, sound, more expressions
-- Visual IDE (web or desktop)
-- Graphics editor
-- Built-in emulator and debugger
+**Next:**
+- Sound (AY on Scramble; Pac-Man audio latch — see PLAN)
+- Stronger compile/runtime errors and debugging
+- Deeper emulator integration in the IDE
 
-See [PLAN.md](PLAN.md) for the complete technical roadmap.
+See [PLAN.md](PLAN.md) for the technical roadmap and phase checklist.
 
 ## Contributing
 
