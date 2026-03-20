@@ -1,0 +1,421 @@
+/* Galaxian BASIC IDE - Arcade-inspired dark theme */
+
+:root {
+  --bg-dark: #0d0d12;
+  --bg-panel: #14141c;
+  --bg-editor: #0a0a0f;
+  --accent: #00e676;
+  --accent-dim: #00a854;
+  --text: #e0e0e8;
+  --text-dim: #8888a0;
+  --border: #2a2a38;
+  --header-bg: #1a1a24;
+  --error: #ff5252;
+  --line-num: #4a4a5a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 13px;
+  background: var(--bg-dark);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  height: 48px;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.toolbar button {
+  padding: 0.35rem 0.75rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  border-radius: 4px;
+}
+
+.toolbar button:hover {
+  background: var(--border);
+  border-color: var(--accent-dim);
+}
+
+.status {
+  margin-left: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 1rem;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 0.6rem 1.2rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Main content */
+.main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.panel {
+  display: none;
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.panel.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Code editor */
+.editor-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-wrap .CodeMirror {
+  height: 100%;
+  font-size: 14px;
+  background: var(--bg-editor);
+}
+
+.editor-wrap .CodeMirror-gutters {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+}
+
+.editor-wrap .CodeMirror-linenumber {
+  color: var(--line-num);
+}
+
+.editor-wrap .CodeMirror-cursor {
+  border-left-color: var(--accent);
+}
+
+/* Help panel */
+.help-wrap {
+  display: flex;
+  gap: 1.5rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.help-nav {
+  width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding-right: 1rem;
+}
+
+.help-nav h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--accent);
+}
+
+.help-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.help-nav li {
+  padding: 0.35rem 0;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.help-nav li:hover,
+.help-nav li.active {
+  color: var(--accent);
+}
+
+.help-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 1rem;
+}
+
+.help-content h2 {
+  font-size: 1.1rem;
+  color: var(--accent);
+  margin-top: 0;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.help-content pre {
+  background: var(--bg-editor);
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+
+.help-content code {
+  background: var(--bg-panel);
+  padding: 0.1rem 0.3rem;
+  border-radius: 2px;
+}
+
+/* Graphics panel */
+.graphics-wrap {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.tile-grid-wrap h3,
+.tile-editor-wrap h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  max-width: 280px;
+}
+
+.char-grid {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 1px;
+  max-width: 280px;
+  margin-top: 1rem;
+}
+
+.char-grid .char-thumb {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: var(--bg-editor);
+}
+
+.char-grid .char-thumb:hover {
+  border-color: var(--accent-dim);
+}
+
+.char-grid .char-thumb.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 4px var(--accent);
+}
+
+.tile-grid .tile-thumb {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: pointer;
+  border: 2px solid transparent;
+  background-size: 32px 32px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.tile-grid .tile-thumb:hover {
+  border-color: var(--text-dim);
+}
+
+.tile-grid .tile-thumb.selected {
+  border-color: var(--accent);
+}
+
+.tile-editor-wrap canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+  cursor: crosshair;
+}
+
+.tile-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pen-colors {
+  display: flex;
+  gap: 4px;
+}
+
+.pen-colors .pen-swatch {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  cursor: pointer;
+}
+
+.pen-colors .pen-swatch.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.tile-tools button {
+  padding: 0.35rem 0.75rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  border-radius: 4px;
+}
+
+.tile-tools button:hover {
+  background: var(--border);
+}
+
+/* Palette panel */
+.palette-wrap h3 {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  max-width: 320px;
+  margin-bottom: 1.5rem;
+}
+
+.palette-grid .pal-swatch {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--border);
+  cursor: pointer;
+}
+
+.palette-grid .pal-swatch:hover {
+  border-color: var(--text-dim);
+}
+
+.palette-grid .pal-swatch.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.palette-editor {
+  max-width: 280px;
+}
+
+.palette-editor p {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.color-picker-row label {
+  width: 60px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.color-picker-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.color-picker-row span {
+  width: 24px;
+  text-align: right;
+  font-size: 0.85rem;
+}
+
+.color-preview {
+  margin-top: 1rem;
+  width: 80px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* Footer */
+.footer {
+  padding: 0.35rem 1rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  background: var(--header-bg);
+  border-top: 1px solid var(--border);
+}

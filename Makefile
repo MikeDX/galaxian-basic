@@ -45,10 +45,15 @@ endif
 
 OBJECTS   = $(BUILD_DIR)/crt0.rel $(BUILD_DIR)/runtime.rel $(MAIN_OBJ)
 
+# Graphics: always use .gfx.json as source (PROGRAM's or default)
+GFXDATA_H = $(BUILD_DIR)/gfxdata.h
+GFX_JSON = $(patsubst %.bas,%.gfx.json,$(PROGRAM))
+DEFAULT_GFX = lib/default.gfx.json
+
 CFLAGS = --vc --std-sdcc99 -mz80 --less-pedantic --oldralloc --no-peep --nolospre
 ASFLAGS = -plosgffwyu
 LDFLAGS = -mjwxyu -i $(BUILD_DIR)/main.ihx -b _CODE=0x0 -b _DATA=0x4000 -b _INITIALIZER=0x3C00 -k $(SDCC_LIB) -l z80
-INCLUDES = -I. -Ilib
+INCLUDES = -I$(BUILD_DIR) -I. -Ilib
 
 .PHONY: all run clean check-sdcc info help
 
@@ -72,6 +77,10 @@ help:
 	@echo ""
 	@echo "Output: build/$(PROJECT_NAME).rom, scramble/*.2d etc"
 	@echo "MAME:   mame scramble -rompath ."
+	@echo ""
+	@echo "Graphics:"
+	@echo "  make gfx-export              - Export default gfx to examples/default.gfx.json"
+	@echo "  make PROGRAM=x.bas          - Uses x.gfx.json if present (same dir as .bas)"
 
 check-sdcc:
 	@if [ ! -x "$(CC)" ]; then \
@@ -90,7 +99,17 @@ $(PROGRAM_C): $(PROGRAM) .force-program
 	@echo "Compiling BASIC: $(PROGRAM) -> $@"
 	@python3 scripts/gbasic.py $(PROGRAM) -o $@
 
-$(BUILD_DIR)/runtime.asm: $(RUNTIME_C)
+$(GFXDATA_H):
+	@mkdir -p $(BUILD_DIR)
+	@if [ -n "$(GFX_JSON)" ] && [ -f "$(GFX_JSON)" ]; then \
+		echo "Graphics: $(GFX_JSON) -> $@"; \
+		python3 scripts/gfxmanager.py to-header $(GFX_JSON) -o $@; \
+	else \
+		echo "Graphics: $(DEFAULT_GFX) -> $@"; \
+		python3 scripts/gfxmanager.py to-header $(DEFAULT_GFX) -o $@; \
+	fi
+
+$(BUILD_DIR)/runtime.asm: $(RUNTIME_C) $(GFXDATA_H)
 	@mkdir -p $(BUILD_DIR)
 	@echo "Compiling $(RUNTIME_C) ..."
 	$(CC) -S $(CFLAGS) $(INCLUDES) -o $@ $<
@@ -168,3 +187,14 @@ info: $(ROM_FILE)
 	@echo "Size: $(shell wc -c < $(ROM_FILE)) bytes"
 	@echo "Scramble: $(SCRAMBLE_DIR)/ ($(shell ls $(SCRAMBLE_DIR) 2>/dev/null | wc -l) files)"
 	@if [ -f $(MAP_FILE) ]; then echo ""; echo "=== Symbols ==="; cat $(MAP_FILE); fi
+
+# Web IDE - serve on http://localhost:8080
+ide:
+	@echo "Starting IDE at http://localhost:8080"
+	cd ide && python3 -m http.server 8080
+
+# Legacy: export gfxdata.h to .gfx.json (only needed for migration)
+gfx-export:
+	@echo "Exporting lib/gfxdata.h -> lib/default.gfx.json"
+	@python3 scripts/gfxmanager.py from-header lib/gfxdata.h -o lib/default.gfx.json
+	@echo "Note: .gfx.json is now the source format. lib/gfxdata.h is deprecated."

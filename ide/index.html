@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Galaxian BASIC IDE</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/ambiance.css">
+</head>
+<body>
+  <header class="header">
+    <h1>Galaxian BASIC IDE</h1>
+    <div class="toolbar">
+      <button id="btn-new" title="New">New</button>
+      <button id="btn-open" title="Open">Open</button>
+      <button id="btn-save" title="Save">Save</button>
+      <button id="btn-load-gfx" title="Load graphics (.gfx.json or gfxdata.h)">Load GFX</button>
+      <button id="btn-save-gfx" title="Save graphics to .gfx.json">Save GFX</button>
+      <button id="btn-build" title="Build">Build</button>
+      <span class="status" id="status">Ready</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="code">Code</button>
+    <button class="tab" data-tab="help">Help</button>
+    <button class="tab" data-tab="graphics">Graphics</button>
+    <button class="tab" data-tab="palette">Palette</button>
+  </nav>
+
+  <main class="main">
+    <section id="panel-code" class="panel active">
+      <div class="editor-wrap">
+        <div id="editor"></div>
+      </div>
+    </section>
+
+    <section id="panel-help" class="panel">
+      <div class="help-wrap">
+        <aside class="help-nav">
+          <h3>Reference</h3>
+          <ul id="help-nav"></ul>
+        </aside>
+        <article class="help-content" id="help-content"></article>
+      </div>
+    </section>
+
+    <section id="panel-graphics" class="panel">
+      <div class="graphics-wrap">
+        <div class="tile-grid-wrap">
+          <h3>16×16 Tiles (64)</h3>
+          <div id="tile-grid" class="tile-grid"></div>
+          <h3>8×8 Chars (256)</h3>
+          <div id="char-grid" class="char-grid"></div>
+        </div>
+        <div class="tile-editor-wrap">
+          <h3>Edit tile <span id="tile-index">0</span></h3>
+          <canvas id="tile-canvas" width="128" height="128"></canvas>
+          <div class="tile-tools">
+            <label>Pen color:</label>
+            <div id="pen-colors" class="pen-colors"></div>
+            <label>Palette:</label>
+            <select id="gfx-palette-select">
+              <option value="0">0 (default)</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+            </select>
+            <button id="btn-clear-tile">Clear</button>
+            <button id="btn-load-gfx-panel" title="Load .gfx.json or gfxdata.h">Load</button>
+            <button id="btn-save-gfx-panel" title="Save to .gfx.json">Save</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-palette" class="panel">
+      <div class="palette-wrap">
+        <h3>Palette (32 colors, 3-3-2 RGB)</h3>
+        <div id="palette-grid" class="palette-grid"></div>
+        <div class="palette-editor" id="palette-editor">
+          <p>Click a color to edit</p>
+          <div class="color-picker-row">
+            <label>R (0-7)</label>
+            <input type="range" id="pal-r" min="0" max="7" value="0">
+            <span id="pal-r-val">0</span>
+          </div>
+          <div class="color-picker-row">
+            <label>G (0-7)</label>
+            <input type="range" id="pal-g" min="0" max="7" value="0">
+            <span id="pal-g-val">0</span>
+          </div>
+          <div class="color-picker-row">
+            <label>B (0-3)</label>
+            <input type="range" id="pal-b" min="0" max="3" value="0">
+            <span id="pal-b-val">0</span>
+          </div>
+          <div class="color-preview" id="color-preview"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span id="footer-msg">Galaxian BASIC — 224×256 • 32×32 tiles • 32 colors</span>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
+  <script src="js/basic-mode.js"></script>
+  <script src="js/gfxmanager.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/help.js"></script>
+  <script src="js/graphics.js"></script>
+  <script src="js/palette.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

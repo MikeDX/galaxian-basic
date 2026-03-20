@@ -9,7 +9,8 @@ runtime.asm
 *.lst
 *.sym
 *.map
-
+lib/gfxdata.h
+__pycache__
 # IDE
 .vscode/
 *.swp
@@ -23,3 +24,4 @@ scramble/*.*
 *.rst
 .DS_Store
 snap
+Makefile

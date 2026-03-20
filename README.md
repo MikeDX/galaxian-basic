@@ -27,7 +27,11 @@ The Z80 runtime is complete and running in MAME! The **BASIC → C → Z80 → R
 
 ![Demo running in MAME](screenshots/demo.gif)
 
-**Next up:** GOSUB/RETURN, sound, IDE.
+**Next up:** Sound, debugger, AI helper.
+
+**Web IDE:** Code editor, help reference, graphics editor, palette editor. Run `make ide` and open http://localhost:8080
+
+See [README_GRAPHICS.md](README_GRAPHICS.md) for details on the unified `.gfx.json` format.
 
 ## Quick Start
 
@@ -77,6 +81,26 @@ python scripts/renum.py examples/example.bas -o out.bas --start 100 --step 10
 - `scramble/` — Individual ROM chips for MAME (s1.2d–s8.2p, c1.5h, c2.5f, etc.)
 
 **Run manually:** `mame scramble -rompath .` (from the `galaxian-basic/` directory)
+
+**Web IDE:**
+
+```bash
+make ide   # Serves IDE at http://localhost:8080
+```
+
+Open http://localhost:8080 for the web-based editor with:
+- **Code** — BASIC editor with syntax highlighting
+- **Help** — Language reference
+- **Graphics** — Tile editor (64 tiles, 16×16, 2 bpp) with 8×8 char view
+- **Palette** — 32-color palette editor (3-3-2 RGB) with sub-palette selector
+- **Load GFX / Save GFX** — Load and save `.gfx.json` files
+
+**Graphics workflow:** 
+1. Edit tiles and palette in the IDE
+2. Save to `examples/yourprogram.gfx.json`
+3. Build with `make PROGRAM=examples/yourprogram.bas` (automatically uses matching `.gfx.json`)
+
+The `.gfx.json` format is the single source of truth. See [README_GRAPHICS.md](README_GRAPHICS.md) for details.
 
 ## Example Programs
 
@@ -147,8 +171,8 @@ galaxian-basic/
 ├── lib/            # Runtime library
 │   ├── runtime.c   # Hardware engine (no main)
 │   ├── runtime.h   # Runtime API for compiled programs
-│   ├── crt0.asm    # Z80 startup code
-│   └── gfxdata.h   # Graphics tiles and palette
+│   ├── crt0.asm         # Z80 startup code
+│   └── default.gfx.json # Default graphics (tiles + palette)
 ├── src/            # Application source
 │   ├── demo.c      # Default demo (when no PROGRAM=)
 │   └── example.c   # Reference C implementation (matches example.bas)
